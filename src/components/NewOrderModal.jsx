@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 /**
  * Modal component for creating a new Service Order (Ordem de Serviço - OS).
@@ -19,6 +19,47 @@ function NewOrderModal({ isOpen, onClose, onSave, apiBaseUrl = '', authToken }) 
   const [dataAgendada, setDataAgendada] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+
+  const fetchClientes = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/clients`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setClientes(data.clients || data || []);
+      } else {
+        setLoadError('Erro ao carregar lista de clientes');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar clientes:', err);
+      setLoadError('Erro ao conectar com o servidor');
+    }
+  }, [apiBaseUrl, authToken]);
+
+  const fetchTecnicos = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/users?tipo=TECNICO`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTecnicos(data.users || data || []);
+      } else {
+        setLoadError('Erro ao carregar lista de técnicos');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar técnicos:', err);
+      setLoadError('Erro ao conectar com o servidor');
+    }
+  }, [apiBaseUrl, authToken]);
 
   // Fetch clients and technicians when modal opens
   useEffect(() => {
@@ -30,42 +71,9 @@ function NewOrderModal({ isOpen, onClose, onSave, apiBaseUrl = '', authToken }) 
       setSelectedTecnicoId('');
       setDataAgendada('');
       setError('');
+      setLoadError('');
     }
-  }, [isOpen]);
-
-  const fetchClientes = async () => {
-    try {
-      const response = await fetch(`${apiBaseUrl}/clients`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setClientes(data.clients || data || []);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar clientes:', err);
-    }
-  };
-
-  const fetchTecnicos = async () => {
-    try {
-      const response = await fetch(`${apiBaseUrl}/users?tipo=TECNICO`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTecnicos(data.users || data || []);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar técnicos:', err);
-    }
-  };
+  }, [isOpen, fetchClientes, fetchTecnicos]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,8 +108,12 @@ function NewOrderModal({ isOpen, onClose, onSave, apiBaseUrl = '', authToken }) 
         }
         onClose();
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Erro ao criar ordem de serviço');
+        try {
+          const errorData = await response.json();
+          setError(errorData.message || 'Erro ao criar ordem de serviço');
+        } catch {
+          setError('Erro ao criar ordem de serviço');
+        }
       }
     } catch (err) {
       setError('Erro ao conectar com o servidor');
@@ -131,9 +143,9 @@ function NewOrderModal({ isOpen, onClose, onSave, apiBaseUrl = '', authToken }) 
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {error && (
+          {(error || loadError) && (
             <div className="error-message" style={styles.error}>
-              {error}
+              {error || loadError}
             </div>
           )}
 
