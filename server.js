@@ -1,12 +1,23 @@
 const fastify = require('fastify');
 const cors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
+const multipart = require('@fastify/multipart');
+const fastifyStatic = require('@fastify/static');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { gerarRelatorio } = require('./src/services/relatorioService');
 const { authMiddleware } = require('./src/middleware/authMiddleware');
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -89,6 +100,35 @@ app.register(rateLimit, {
   }),
 });
 
+// Register multipart plugin for file uploads
+app.register(multipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max file size
+  },
+});
+
+// Register static file plugin to serve uploaded files
+app.register(fastifyStatic, {
+  root: uploadsDir,
+  prefix: '/uploads/',
+});
+
+// Helper function to verify JWT token and extract user info
+const verifyToken = (request) => {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.substring(7);
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch {
+    return null;
+  }
+};
+
+// Health check route
+app.get('/health', async (request, reply) => {
 // Register routes plugin to ensure routes are collected by Swagger
 app.register(async function routes(fastifyInstance) {
   // Helper function to verify JWT token and extract user info
@@ -123,6 +163,87 @@ app.register(async function routes(fastifyInstance) {
   },
 }, async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
+});
+
+// POST /upload - Upload an image file (protected route - requires authentication)
+// Returns the public URL to access the uploaded image
+// Note: This route has additional rate limiting via global rateLimit plugin (100/min per IP)
+// and is protected by authentication, which helps prevent abuse
+app.post('/upload', {
+  preHandler: authMiddleware,
+  config: {
+    rateLimit: {
+      max: 20, // Stricter limit for file uploads: 20 per minute per IP
+      timeWindow: '1 minute',
+    },
+  },
+}, async (request, reply) => {
+  try {
+    // Check if request has content type for multipart
+    const contentType = request.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'Nenhum arquivo enviado. Use multipart/form-data para enviar arquivos.',
+      });
+    }
+
+    const data = await request.file();
+
+    if (!data) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'Nenhum arquivo enviado',
+      });
+    }
+
+    // Validate that file is an image and get safe extension from mimetype
+    const mimeToExtension = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+    };
+
+    const fileExtension = mimeToExtension[data.mimetype];
+    if (!fileExtension) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'Tipo de arquivo não permitido. Apenas imagens (JPEG, PNG, GIF, WEBP) são aceitas.',
+      });
+    }
+
+    // Generate unique filename using timestamp and random bytes for security
+    const timestamp = Date.now();
+    const randomSuffix = crypto.randomBytes(8).toString('hex');
+    const uniqueFilename = `${timestamp}-${randomSuffix}${fileExtension}`;
+    const filePath = path.join(uploadsDir, uniqueFilename);
+
+    // Save file to uploads directory
+    const writeStream = fs.createWriteStream(filePath);
+    await new Promise((resolve, reject) => {
+      data.file.pipe(writeStream);
+      data.file.on('end', resolve);
+      data.file.on('error', reject);
+      writeStream.on('error', reject);
+    });
+
+    // Build public URL - use BASE_URL env var for flexibility (supports https)
+    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const publicUrl = `${baseUrl}/uploads/${uniqueFilename}`;
+
+    return reply.status(201).send({
+      message: 'Arquivo enviado com sucesso',
+      filename: uniqueFilename,
+      url: publicUrl,
+    });
+  } catch (error) {
+    app.log.error(error);
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao processar upload do arquivo',
+    });
+  }
 });
 
 // GET /orders - List all service orders (protected route - requires authentication)

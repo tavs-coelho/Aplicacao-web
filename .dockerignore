@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+dist/
+build/
+
+# Documentation (not needed for runtime)
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE.md
+
+# Tests
+*.test.js
+*.spec.js
+vitest.config.js
+coverage/
+
+# Frontend (not needed for backend container)
+frontend/
+
+# Mobile (not needed for backend container)
+mobile/
