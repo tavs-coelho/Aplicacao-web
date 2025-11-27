@@ -6,16 +6,34 @@ const http = require('http');
 const IMAGE_FETCH_TIMEOUT = 10000;
 
 /**
+ * Checks if a string is a valid IPv4 address
+ * @param {string} ip - The string to check
+ * @returns {boolean} - Whether it's a valid IPv4 address
+ */
+function isValidIPv4(ip) {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  
+  for (const part of parts) {
+    // Check that each part is a valid number (0-255)
+    if (!/^\d+$/.test(part)) return false;
+    const num = parseInt(part, 10);
+    if (num < 0 || num > 255) return false;
+    // Check for leading zeros (which could be used for obfuscation)
+    if (part.length > 1 && part.startsWith('0')) return false;
+  }
+  return true;
+}
+
+/**
  * Checks if an IP address is in a private range
  * @param {string} ip - The IP address to check
  * @returns {boolean} - Whether the IP is private
  */
 function isPrivateIP(ip) {
-  // Check for private IP ranges
+  if (!isValidIPv4(ip)) return false;
+  
   const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) {
-    return false; // Not a valid IPv4 address format
-  }
   
   // 10.0.0.0/8
   if (parts[0] === 10) return true;
@@ -32,11 +50,27 @@ function isPrivateIP(ip) {
   // 169.254.0.0/16 (link-local)
   if (parts[0] === 169 && parts[1] === 254) return true;
   
+  // 0.0.0.0/8 (current network)
+  if (parts[0] === 0) return true;
+  
   return false;
 }
 
 /**
- * Validates a URL to ensure it's a valid HTTP/HTTPS URL
+ * Checks if a string contains IPv6 patterns (including bracketed notation)
+ * @param {string} hostname - The hostname to check
+ * @returns {boolean} - Whether it appears to be IPv6
+ */
+function isIPv6Pattern(hostname) {
+  // Block any hostname containing colons (IPv6 indicator)
+  // Also block bracketed IPv6 notation like [::1]
+  if (hostname.includes(':')) return true;
+  if (hostname.startsWith('[') && hostname.endsWith(']')) return true;
+  return false;
+}
+
+/**
+ * Validates a URL to ensure it's a valid HTTP/HTTPS URL and not targeting private networks
  * @param {string} url - The URL to validate
  * @returns {boolean} - Whether the URL is valid
  */
@@ -47,18 +81,27 @@ function isValidImageUrl(url) {
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
       return false;
     }
-    // Block local/private network addresses
+    
     const hostname = parsedUrl.hostname.toLowerCase();
-    const blockedHostnames = ['localhost', '0.0.0.0', '::1'];
+    
+    // Block local/private network hostnames
+    const blockedHostnames = ['localhost', '0.0.0.0'];
     if (blockedHostnames.includes(hostname)) {
       return false;
     }
-    // Check if hostname is an IP address and if it's private
-    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    
+    // Block IPv6 addresses (including ::1 and other patterns)
+    if (isIPv6Pattern(hostname)) {
+      return false;
+    }
+    
+    // Check if hostname is an IPv4 address and if it's private
+    if (isValidIPv4(hostname)) {
       if (isPrivateIP(hostname)) {
         return false;
       }
     }
+    
     return true;
   } catch (error) {
     return false;
