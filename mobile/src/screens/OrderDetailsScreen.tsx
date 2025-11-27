@@ -1,64 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, ServiceOrder } from '../types';
+import { RootStackParamList } from '../types';
+import { formatDate, formatTime, getStatusColor, getStatusLabel } from '../utils/formatters';
 
 type OrderDetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'OrderDetails'>;
-
-/**
- * Formats a date string to display in DD/MM/YYYY format
- */
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
-
-/**
- * Formats a date string to display time in HH:MM format
- */
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-/**
- * Returns the color for the status badge
- */
-function getStatusColor(status: ServiceOrder['status']): string {
-  switch (status) {
-    case 'PENDENTE':
-      return '#FFA500';
-    case 'EM_ANDAMENTO':
-      return '#3498db';
-    case 'CONCLUIDO':
-      return '#2ecc71';
-    default:
-      return '#95a5a6';
-  }
-}
-
-/**
- * Returns a human-readable status label
- */
-function getStatusLabel(status: ServiceOrder['status']): string {
-  switch (status) {
-    case 'PENDENTE':
-      return 'Pendente';
-    case 'EM_ANDAMENTO':
-      return 'Em Andamento';
-    case 'CONCLUIDO':
-      return 'Concluído';
-    default:
-      return status;
-  }
-}
 
 export function OrderDetailsScreen({ route }: OrderDetailsScreenProps) {
   const { order } = route.params;
