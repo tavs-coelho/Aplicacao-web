@@ -27,7 +27,7 @@ function PhotoCapture({ onPhotosChange }) {
         const reader = new FileReader();
         reader.onload = (e) => {
           const photo = {
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             file: file,
             preview: e.target.result,
             name: file.name,

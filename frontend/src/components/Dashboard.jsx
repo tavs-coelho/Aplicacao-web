@@ -249,12 +249,13 @@ function FinalizeOrderModal({ order, onClose, onSubmit }) {
       // photos.forEach((photo, index) => {
       //   formData.append(`photo_${index}`, photo.file);
       // });
-      // await fetch('/api/orders/${order.id}/finalize', { method: 'POST', body: formData });
+      // await fetch(`/api/orders/${order.id}/finalize`, { method: 'POST', body: formData });
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       onSubmit(order, photos);
-    } catch {
+    } catch (error) {
+      console.error('Error finalizing order:', error);
       alert('Erro ao finalizar a OS. Tente novamente.');
     } finally {
       setIsSubmitting(false);
