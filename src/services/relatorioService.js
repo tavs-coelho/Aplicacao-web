@@ -2,16 +2,61 @@ const PDFDocument = require('pdfkit');
 const https = require('https');
 const http = require('http');
 
+// Timeout for image fetch requests (in milliseconds)
+const IMAGE_FETCH_TIMEOUT = 10000;
+
+/**
+ * Validates a URL to ensure it's a valid HTTP/HTTPS URL
+ * @param {string} url - The URL to validate
+ * @returns {boolean} - Whether the URL is valid
+ */
+function isValidImageUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    // Only allow http and https protocols
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return false;
+    }
+    // Block local/private network addresses
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const blockedHostnames = ['localhost', '127.0.0.1', '0.0.0.0', '::1'];
+    if (blockedHostnames.includes(hostname)) {
+      return false;
+    }
+    // Block private IP ranges (basic check)
+    if (hostname.startsWith('10.') || 
+        hostname.startsWith('192.168.') || 
+        hostname.startsWith('172.16.') ||
+        hostname.startsWith('172.17.') ||
+        hostname.startsWith('172.18.') ||
+        hostname.startsWith('172.19.') ||
+        hostname.startsWith('172.2') ||
+        hostname.startsWith('172.30.') ||
+        hostname.startsWith('172.31.')) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fetches an image from a URL and returns it as a buffer
  * @param {string} imageUrl - The URL of the image to fetch
  * @returns {Promise<Buffer>} - The image as a buffer
  */
 async function fetchImageBuffer(imageUrl) {
+  // Validate URL before fetching
+  if (!isValidImageUrl(imageUrl)) {
+    throw new Error('Invalid or disallowed image URL');
+  }
+
   return new Promise((resolve, reject) => {
-    const protocol = imageUrl.startsWith('https') ? https : http;
+    const parsedUrl = new URL(imageUrl);
+    const protocol = parsedUrl.protocol === 'https:' ? https : http;
     
-    protocol.get(imageUrl, (response) => {
+    const request = protocol.get(imageUrl, (response) => {
       if (response.statusCode !== 200) {
         reject(new Error(`Failed to fetch image: ${response.statusCode}`));
         return;
@@ -21,7 +66,15 @@ async function fetchImageBuffer(imageUrl) {
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () => resolve(Buffer.concat(chunks)));
       response.on('error', reject);
-    }).on('error', reject);
+    });
+    
+    // Set timeout to prevent hanging
+    request.setTimeout(IMAGE_FETCH_TIMEOUT, () => {
+      request.destroy();
+      reject(new Error('Image fetch timeout'));
+    });
+    
+    request.on('error', reject);
   });
 }
 
@@ -172,9 +225,6 @@ async function gerarRelatorio(orderId, prisma) {
       doc.text('ANTES', 50 + (photoWidth / 2) - 20, yPosition);
       yPosition += 15;
       
-      let antesImageLoaded = false;
-      let depoisImageLoaded = false;
-      
       if (fotoAntes) {
         try {
           const imageBuffer = await fetchImageBuffer(fotoAntes.url);
@@ -183,8 +233,7 @@ async function gerarRelatorio(orderId, prisma) {
             height: photoHeight,
             fit: [photoWidth, photoHeight],
           });
-          antesImageLoaded = true;
-        } catch {
+        } catch (error) {
           // If image fails to load, draw placeholder
           doc.rect(50, yPosition, photoWidth, photoHeight).stroke();
           doc.fontSize(8).text('Foto não disponível', 50 + 70, yPosition + 75);
@@ -206,8 +255,7 @@ async function gerarRelatorio(orderId, prisma) {
             height: photoHeight,
             fit: [photoWidth, photoHeight],
           });
-          depoisImageLoaded = true;
-        } catch {
+        } catch (error) {
           // If image fails to load, draw placeholder
           doc.rect(295, yPosition, photoWidth, photoHeight).stroke();
           doc.fontSize(8).text('Foto não disponível', 295 + 70, yPosition + 75);
