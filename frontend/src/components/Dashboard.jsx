@@ -3,11 +3,13 @@
 
 import { useState } from 'react';
 import PhotoCapture from './PhotoCapture';
+import WhatsAppReminderButton from './WhatsAppReminderButton';
 
 const sampleServiceOrders = [
   {
     id: '1',
     cliente: 'João Silva',
+    clientePhone: '5511999998888',
     tecnico: 'Carlos Santos',
     data: '2024-01-15',
     status: 'CONCLUIDO',
@@ -16,6 +18,7 @@ const sampleServiceOrders = [
   {
     id: '2',
     cliente: 'Maria Oliveira',
+    clientePhone: '5521988887777',
     tecnico: 'Pedro Costa',
     data: '2024-01-16',
     status: 'PENDENTE',
@@ -24,6 +27,7 @@ const sampleServiceOrders = [
   {
     id: '3',
     cliente: 'Ana Souza',
+    clientePhone: '5531977776666',
     tecnico: 'Carlos Santos',
     data: '2024-01-17',
     status: 'EM_ANDAMENTO',
@@ -32,6 +36,7 @@ const sampleServiceOrders = [
   {
     id: '4',
     cliente: 'Roberto Lima',
+    clientePhone: '5541966665555',
     tecnico: 'Ana Pereira',
     data: '2024-01-18',
     status: 'CONCLUIDO',
@@ -40,11 +45,21 @@ const sampleServiceOrders = [
   {
     id: '5',
     cliente: 'Fernanda Rocha',
+    clientePhone: '5551955554444',
     tecnico: 'Pedro Costa',
     data: '2024-01-19',
     status: 'PENDENTE',
     clientLocation: { latitude: -30.027704, longitude: -51.228735 }, // Porto Alegre
   },
+];
+
+// Sample clients data for the Clientes view
+const sampleClients = [
+  { id: '1', nome: 'João Silva', telefone: '5511999998888', email: 'joao.silva@email.com' },
+  { id: '2', nome: 'Maria Oliveira', telefone: '5521988887777', email: 'maria.oliveira@email.com' },
+  { id: '3', nome: 'Ana Souza', telefone: '5531977776666', email: 'ana.souza@email.com' },
+  { id: '4', nome: 'Roberto Lima', telefone: '5541966665555', email: 'roberto.lima@email.com' },
+  { id: '5', nome: 'Fernanda Rocha', telefone: '5551955554444', email: 'fernanda.rocha@email.com' },
 ];
 
 // Status badge component with color-coded styling
@@ -85,14 +100,14 @@ function StatusBadge({ status }) {
 }
 
 // Sidebar component
-function Sidebar() {
+function Sidebar({ activeView, onViewChange }) {
   const menuItems = [
-    { name: 'Dashboard', icon: '📊', active: true },
-    { name: 'Ordens de Serviço', icon: '📋', active: false },
-    { name: 'Clientes', icon: '👥', active: false },
-    { name: 'Técnicos', icon: '🔧', active: false },
-    { name: 'Relatórios', icon: '📈', active: false },
-    { name: 'Configurações', icon: '⚙️', active: false },
+    { name: 'Dashboard', key: 'dashboard', icon: '📊' },
+    { name: 'Ordens de Serviço', key: 'orders', icon: '📋' },
+    { name: 'Clientes', key: 'clients', icon: '👥' },
+    { name: 'Técnicos', key: 'technicians', icon: '🔧' },
+    { name: 'Relatórios', key: 'reports', icon: '📈' },
+    { name: 'Configurações', key: 'settings', icon: '⚙️' },
   ];
 
   return (
@@ -104,11 +119,12 @@ function Sidebar() {
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
           {menuItems.map((item) => (
-            <li key={item.name}>
+            <li key={item.key}>
               <button
                 type="button"
+                onClick={() => onViewChange(item.key)}
                 className={`w-full flex items-center px-4 py-2 rounded-lg transition-colors text-left ${
-                  item.active
+                  activeView === item.key
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                 }`}
@@ -348,10 +364,89 @@ function FinalizeOrderModal({ order, onClose, onSubmit }) {
   );
 }
 
+// Clients Table component with WhatsApp reminder button
+function ClientsTable({ clients }) {
+  const formatPhone = (phone) => {
+    // Format phone for display: +55 (11) 99999-8888
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 13) {
+      return `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4, 9)}-${cleaned.slice(9)}`;
+    }
+    return phone;
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">Clientes</h2>
+        <p className="text-sm text-gray-500">Lista de todos os clientes</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Nome
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Telefone
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Email
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Ações
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {clients.map((client) => (
+              <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">
+                    {client.nome}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {formatPhone(client.telefone)}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-500">{client.email}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <WhatsAppReminderButton
+                    clientName={client.nome}
+                    phone={client.telefone}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
+  const [activeView, setActiveView] = useState('dashboard');
 
   const handleFinalizeOrder = (order) => {
     setSelectedOrder(order);
@@ -372,75 +467,117 @@ function Dashboard() {
     alert(`OS #${order.id} finalizada com sucesso! ${photos.length} foto(s) enviada(s).`);
   };
 
+  const handleViewChange = (view) => {
+    setActiveView(view);
+  };
+
+  const getViewTitle = () => {
+    switch (activeView) {
+      case 'dashboard':
+        return { title: 'Dashboard', subtitle: 'Bem-vindo ao Sistema de Gestão de Equipes Externas' };
+      case 'orders':
+        return { title: 'Ordens de Serviço', subtitle: 'Gerencie as ordens de serviço' };
+      case 'clients':
+        return { title: 'Clientes', subtitle: 'Lista de todos os clientes cadastrados' };
+      case 'technicians':
+        return { title: 'Técnicos', subtitle: 'Gerencie os técnicos' };
+      case 'reports':
+        return { title: 'Relatórios', subtitle: 'Visualize os relatórios do sistema' };
+      case 'settings':
+        return { title: 'Configurações', subtitle: 'Configure o sistema' };
+      default:
+        return { title: 'Dashboard', subtitle: 'Bem-vindo ao Sistema de Gestão de Equipes Externas' };
+    }
+  };
+
+  const viewInfo = getViewTitle();
+
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <Sidebar />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} />
       <main className="flex-1 p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-600">
-            Bem-vindo ao Sistema de Gestão de Equipes Externas
-          </p>
+          <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
+          <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">📋</span>
+        {/* Dashboard View - Stats cards */}
+        {activeView === 'dashboard' && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <span className="text-2xl">📋</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Total de Ordens</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {orders.length}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Total de Ordens</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.length}
-                </p>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-green-100 rounded-full">
+                    <span className="text-2xl">✅</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Concluídas</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {orders.filter((o) => o.status === 'CONCLUIDO').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-yellow-100 rounded-full">
+                    <span className="text-2xl">⏳</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Pendentes</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {orders.filter((o) => o.status === 'PENDENTE').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <span className="text-2xl">🔄</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Em Andamento</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-full">
-                <span className="text-2xl">✅</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Concluídas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Pendentes</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'PENDENTE').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">🔄</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+            <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
+          </>
+        )}
 
-        {/* Service Orders Table */}
-        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
+        {/* Orders View */}
+        {activeView === 'orders' && (
+          <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
+        )}
+
+        {/* Clients View */}
+        {activeView === 'clients' && (
+          <ClientsTable clients={sampleClients} />
+        )}
+
+        {/* Placeholder views for other sections */}
+        {(activeView === 'technicians' || activeView === 'reports' || activeView === 'settings') && (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <p className="text-gray-500">Esta seção está em desenvolvimento.</p>
+          </div>
+        )}
       </main>
 
       {/* Finalize Order Modal */}
