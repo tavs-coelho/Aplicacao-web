@@ -1,6 +1,15 @@
 // TableSkeleton component - displays loading skeleton with pulse animation
 
+// Predefined widths for skeleton cells to avoid flickering on re-render
+const SKELETON_WIDTHS = ['75%', '60%', '80%', '65%', '70%'];
+
 function TableSkeleton({ rows = 5, columns = 5 }) {
+  // Get deterministic width based on row and column index
+  const getWidth = (rowIndex, colIndex) => {
+    const index = (rowIndex + colIndex) % SKELETON_WIDTHS.length;
+    return SKELETON_WIDTHS[index];
+  };
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -30,7 +39,7 @@ function TableSkeleton({ rows = 5, columns = 5 }) {
                     <div 
                       className="h-4 bg-gray-200 rounded animate-pulse"
                       style={{ 
-                        width: `${Math.floor(Math.random() * 40) + 60}%`,
+                        width: getWidth(rowIndex, colIndex),
                         animationDelay: `${rowIndex * 100}ms`
                       }}
                     ></div>
