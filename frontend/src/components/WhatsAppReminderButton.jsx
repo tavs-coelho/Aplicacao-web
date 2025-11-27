@@ -29,6 +29,10 @@ function WhatsAppReminderButton({ clientName, phone, className = '' }) {
 
   const handleClick = () => {
     const whatsappUrl = generateWhatsAppLink(phone, defaultMessage);
+    if (!whatsappUrl) {
+      console.error('Invalid phone number for WhatsApp link');
+      return;
+    }
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 

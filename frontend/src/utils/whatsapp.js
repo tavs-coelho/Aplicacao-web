@@ -8,6 +8,12 @@ export function generateWhatsAppLink(phone, message) {
   // Remove all non-digit characters from the phone number
   const cleanPhone = phone.replace(/\D/g, '');
   
+  // Basic validation: ensure phone number has at least some digits
+  if (!cleanPhone || cleanPhone.length < 8) {
+    console.warn('Invalid phone number provided to generateWhatsAppLink');
+    return '';
+  }
+  
   // Encode the message for URL
   const encodedMessage = encodeURIComponent(message);
   
