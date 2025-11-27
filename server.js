@@ -1,5 +1,6 @@
 const fastify = require('fastify');
 const cors = require('@fastify/cors');
+const rateLimit = require('@fastify/rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 
@@ -21,6 +22,18 @@ app.register(cors, {
   origin: process.env.CORS_ORIGIN || true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
+});
+
+// Register rate limiting plugin
+// Limits requests per IP to prevent abuse
+app.register(rateLimit, {
+  max: 100, // Maximum 100 requests per window
+  timeWindow: '1 minute', // Per minute
+  errorResponseBuilder: (request, context) => ({
+    error: 'Too Many Requests',
+    message: `Limite de requisições excedido. Tente novamente em ${Math.ceil(context.ttl / 1000)} segundos.`,
+    statusCode: 429,
+  }),
 });
 
 // Helper function to verify JWT token and extract user info
