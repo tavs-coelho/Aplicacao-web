@@ -6,6 +6,36 @@ const http = require('http');
 const IMAGE_FETCH_TIMEOUT = 10000;
 
 /**
+ * Checks if an IP address is in a private range
+ * @param {string} ip - The IP address to check
+ * @returns {boolean} - Whether the IP is private
+ */
+function isPrivateIP(ip) {
+  // Check for private IP ranges
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) {
+    return false; // Not a valid IPv4 address format
+  }
+  
+  // 10.0.0.0/8
+  if (parts[0] === 10) return true;
+  
+  // 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  
+  // 192.168.0.0/16
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  
+  // 127.0.0.0/8 (loopback)
+  if (parts[0] === 127) return true;
+  
+  // 169.254.0.0/16 (link-local)
+  if (parts[0] === 169 && parts[1] === 254) return true;
+  
+  return false;
+}
+
+/**
  * Validates a URL to ensure it's a valid HTTP/HTTPS URL
  * @param {string} url - The URL to validate
  * @returns {boolean} - Whether the URL is valid
@@ -19,24 +49,18 @@ function isValidImageUrl(url) {
     }
     // Block local/private network addresses
     const hostname = parsedUrl.hostname.toLowerCase();
-    const blockedHostnames = ['localhost', '127.0.0.1', '0.0.0.0', '::1'];
+    const blockedHostnames = ['localhost', '0.0.0.0', '::1'];
     if (blockedHostnames.includes(hostname)) {
       return false;
     }
-    // Block private IP ranges (basic check)
-    if (hostname.startsWith('10.') || 
-        hostname.startsWith('192.168.') || 
-        hostname.startsWith('172.16.') ||
-        hostname.startsWith('172.17.') ||
-        hostname.startsWith('172.18.') ||
-        hostname.startsWith('172.19.') ||
-        hostname.startsWith('172.2') ||
-        hostname.startsWith('172.30.') ||
-        hostname.startsWith('172.31.')) {
-      return false;
+    // Check if hostname is an IP address and if it's private
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      if (isPrivateIP(hostname)) {
+        return false;
+      }
     }
     return true;
-  } catch {
+  } catch (error) {
     return false;
   }
 }
