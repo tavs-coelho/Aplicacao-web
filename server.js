@@ -730,6 +730,151 @@ fastifyInstance.patch('/orders/:id/status', {
   }
 });
 
+// PATCH /orders/:id/rating - Update rating and feedback for a service order
+fastifyInstance.patch('/orders/:id/rating', {
+  schema: {
+    tags: ['Orders'],
+    summary: 'Atualizar avaliação da ordem de serviço',
+    description: 'Atualiza a nota (1 a 5) e o comentário opcional do cliente para uma ordem de serviço.',
+    security: [{ bearerAuth: [] }],
+    params: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string', format: 'uuid', description: 'ID da ordem de serviço' },
+      },
+    },
+    body: {
+      type: 'object',
+      required: ['rating'],
+      properties: {
+        rating: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 5,
+          description: 'Nota do cliente (1 a 5)',
+          example: 5,
+        },
+        feedback: {
+          type: 'string',
+          description: 'Comentário opcional do cliente',
+          example: 'Excelente serviço!',
+        },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Avaliação salva com sucesso' },
+          serviceOrder: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              rating: { type: 'integer', nullable: true },
+              feedback: { type: 'string', nullable: true },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Rating é obrigatório e deve ser entre 1 e 5' },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+        },
+      },
+      404: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+          message: { type: 'string', example: 'Ordem de serviço não encontrada' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao salvar avaliação' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
+  // Verify authentication
+  const user = verifyToken(request);
+  if (!user) {
+    return reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Token de autenticação inválido ou ausente',
+    });
+  }
+
+  const { id } = request.params;
+  const { rating, feedback } = request.body || {};
+
+  // Validate rating
+  if (rating === undefined || rating === null) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Rating é obrigatório',
+    });
+  }
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Rating deve ser um número inteiro entre 1 e 5',
+    });
+  }
+
+  try {
+    // Find the existing service order
+    const existingOrder = await prisma.serviceOrder.findUnique({
+      where: { id },
+    });
+
+    if (!existingOrder) {
+      return reply.status(404).send({
+        error: 'Not Found',
+        message: 'Ordem de serviço não encontrada',
+      });
+    }
+
+    // Update the service order with rating and feedback
+    const serviceOrder = await prisma.serviceOrder.update({
+      where: { id },
+      data: {
+        rating,
+        feedback: feedback || null,
+      },
+      select: {
+        id: true,
+        rating: true,
+        feedback: true,
+      },
+    });
+
+    return reply.send({
+      message: 'Avaliação salva com sucesso',
+      serviceOrder,
+    });
+  } catch (error) {
+    fastifyInstance.log.error(error);
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao salvar avaliação',
+    });
+  }
+});
+
 // POST /login route
 fastifyInstance.post('/login', {
   schema: {
