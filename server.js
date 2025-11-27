@@ -138,14 +138,16 @@ app.post('/orders', async (request, reply) => {
 
 // GET /orders/tech/:id - List Service Orders for a specific technician
 app.get('/orders/tech/:id', async (request, reply) => {
-  const { id } = request.params;
-
-  if (!id) {
-    return reply.status(400).send({
-      error: 'Bad Request',
-      message: 'ID do técnico é obrigatório',
+  // Verify authentication
+  const user = verifyToken(request);
+  if (!user) {
+    return reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Token de autenticação inválido ou ausente',
     });
   }
+
+  const { id } = request.params;
 
   try {
     // Verify the technician exists
@@ -190,15 +192,17 @@ app.get('/orders/tech/:id', async (request, reply) => {
 
 // PATCH /orders/:id/status - Update the status and save current timestamp
 app.patch('/orders/:id/status', async (request, reply) => {
-  const { id } = request.params;
-  const { status } = request.body || {};
-
-  if (!id) {
-    return reply.status(400).send({
-      error: 'Bad Request',
-      message: 'ID da ordem de serviço é obrigatório',
+  // Verify authentication
+  const user = verifyToken(request);
+  if (!user) {
+    return reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Token de autenticação inválido ou ausente',
     });
   }
+
+  const { id } = request.params;
+  const { status } = request.body || {};
 
   if (!status) {
     return reply.status(400).send({
