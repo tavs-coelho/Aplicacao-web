@@ -1,12 +1,15 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
+import TableSkeleton from './TableSkeleton';
+import NewOrderModal from './NewOrderModal';
 
 const sampleServiceOrders = [
   {
@@ -155,7 +158,7 @@ function Sidebar({ activeView, onViewChange }) {
 }
 
 // Service Orders Table component
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -164,6 +167,10 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
       year: 'numeric',
     });
   };
+
+  if (isLoading) {
+    return <TableSkeleton rows={5} columns={5} />;
+  }
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -176,14 +183,24 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
             Lista de todas as ordens de serviço
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onExport}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <span className="mr-2">📥</span>
-          Exportar Relatório
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onNewOrder}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          >
+            <span className="mr-2">➕</span>
+            Nova OS
+          </button>
+          <button
+            type="button"
+            onClick={onExport}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <span className="mr-2">📥</span>
+            Exportar Relatório
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -448,11 +465,24 @@ function ClientsTable({ clients }) {
   );
 }
 
+// Extract unique technicians from orders
+const sampleTechnicians = [...new Set(sampleServiceOrders.map(o => o.tecnico))];
+
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Simulate initial data loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleFinalizeOrder = (order) => {
     setSelectedOrder(order);
@@ -481,6 +511,18 @@ function Dashboard() {
     setActiveView(view);
   };
 
+  const handleNewOrder = () => {
+    setShowNewOrderModal(true);
+  };
+
+  const handleCloseNewOrderModal = () => {
+    setShowNewOrderModal(false);
+  };
+
+  const handleSubmitNewOrder = (newOrder) => {
+    setOrders(prev => [...prev, newOrder]);
+  };
+
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
@@ -504,78 +546,10 @@ function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
+      <Toaster position="top-right" />
       <Sidebar activeView={activeView} onViewChange={handleViewChange} />
       <main className="flex-1 p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-600">
-            Bem-vindo ao Sistema de Gestão de Equipes Externas
-          </p>
-        </div>
-
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">📋</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Total de Ordens</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-full">
-                <span className="text-2xl">✅</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Concluídas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Pendentes</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'PENDENTE').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">🔄</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Technician Performance Chart */}
-        <div className="mb-8">
-          <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
-        </div>
-
-        {/* Service Orders Table */}
-        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
           <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
           <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
@@ -637,13 +611,29 @@ function Dashboard() {
                 </div>
               </div>
             </div>
-            <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} onExport={handleExportOrders} />
+            {/* Technician Performance Chart */}
+            <div className="mb-8">
+              <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
+            </div>
+            <ServiceOrdersTable 
+              orders={orders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
+              onNewOrder={handleNewOrder}
+              isLoading={isLoading}
+            />
           </>
         )}
 
         {/* Orders View */}
         {activeView === 'orders' && (
-          <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} onExport={handleExportOrders} />
+          <ServiceOrdersTable 
+            orders={orders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
+            onNewOrder={handleNewOrder}
+            isLoading={isLoading}
+          />
         )}
 
         {/* Clients View */}
@@ -665,6 +655,16 @@ function Dashboard() {
           order={selectedOrder}
           onClose={handleCloseModal}
           onSubmit={handleSubmitFinalization}
+        />
+      )}
+
+      {/* New Order Modal */}
+      {showNewOrderModal && (
+        <NewOrderModal
+          onClose={handleCloseNewOrderModal}
+          onSubmit={handleSubmitNewOrder}
+          clients={sampleClients}
+          technicians={sampleTechnicians}
         />
       )}
     </div>
