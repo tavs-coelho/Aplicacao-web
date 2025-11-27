@@ -4,6 +4,7 @@ const rateLimit = require('@fastify/rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const { gerarRelatorio } = require('./src/services/relatorioService');
+const { authMiddleware } = require('./src/middleware/authMiddleware');
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -54,6 +55,39 @@ const verifyToken = (request) => {
 // Health check route
 app.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
+});
+
+// GET /orders - List all service orders (protected route - requires authentication)
+app.get('/orders', { preHandler: authMiddleware }, async (request, reply) => {
+  try {
+    const serviceOrders = await prisma.serviceOrder.findMany({
+      include: {
+        tecnico: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+          },
+        },
+        cliente: true,
+        photos: true,
+      },
+      orderBy: {
+        dataAgendada: 'desc',
+      },
+    });
+
+    return reply.send({
+      total: serviceOrders.length,
+      serviceOrders,
+    });
+  } catch (error) {
+    app.log.error(error);
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao buscar ordens de serviço',
+    });
+  }
 });
 
 // POST /orders - For Admin to create a new Service Order linked to a technician and client
