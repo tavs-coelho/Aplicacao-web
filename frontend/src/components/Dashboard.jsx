@@ -3,6 +3,8 @@
 
 import { useState } from 'react';
 import PhotoCapture from './PhotoCapture';
+import TechnicianPerformanceChart from './TechnicianPerformanceChart';
+import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 
 const sampleServiceOrders = [
@@ -265,13 +267,6 @@ function FinalizeOrderModal({ order, onClose, onSubmit }) {
     
     setIsSubmitting(true);
     try {
-      // Here you would send photos to the backend
-      // const formData = new FormData();
-      // photos.forEach((photo, index) => {
-      //   formData.append(`photo_${index}`, photo.file);
-      // });
-      // await fetch(`/api/orders/${order.id}/finalize`, { method: 'POST', body: formData });
-      
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       onSubmit(order, photos);
@@ -497,6 +492,75 @@ function Dashboard() {
       <Sidebar activeView={activeView} onViewChange={handleViewChange} />
       <main className="flex-1 p-8">
         <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-gray-600">
+            Bem-vindo ao Sistema de Gestão de Equipes Externas
+          </p>
+        </div>
+
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <span className="text-2xl">📋</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Total de Ordens</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-full">
+                <span className="text-2xl">✅</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Concluídas</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-yellow-100 rounded-full">
+                <span className="text-2xl">⏳</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Pendentes</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.filter((o) => o.status === 'PENDENTE').length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <span className="text-2xl">🔄</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Em Andamento</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Technician Performance Chart */}
+        <div className="mb-8">
+          <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
+        </div>
+
+        {/* Service Orders Table */}
+        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
           <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
           <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
