@@ -25,3 +25,21 @@ npm-debug.log*
 # Build artifacts
 dist/
 build/
+
+# Mobile (Expo)
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.kotlin/
+mobile/*.orig.*
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/.metro-health-check*
+mobile/*.pem
+mobile/*.tsbuildinfo
+mobile/ios/
+mobile/android/
