@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Custom hook for obtaining the user's current geolocation using the browser's Geolocation API.
@@ -14,6 +14,7 @@ export function useGeolocation() {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const hasFetchedRef = useRef(false);
 
   const getCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -59,7 +60,10 @@ export function useGeolocation() {
   }, []);
 
   useEffect(() => {
-    getCurrentLocation();
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      getCurrentLocation();
+    }
   }, [getCurrentLocation]);
 
   return {

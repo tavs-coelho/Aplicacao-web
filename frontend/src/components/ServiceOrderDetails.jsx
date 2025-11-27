@@ -42,7 +42,7 @@ function ServiceOrderDetails({ serviceOrder, onStartService, onBack }) {
   const canStartService = distance !== null && distance < PROXIMITY_THRESHOLD_METERS;
 
   const handleStartService = () => {
-    if (canStartService && onStartService) {
+    if (canStartService && onStartService && serviceOrder?.id) {
       onStartService(serviceOrder.id);
     }
   };
@@ -166,16 +166,16 @@ function ServiceOrderDetails({ serviceOrder, onStartService, onBack }) {
             <div className="flex items-center text-gray-600">
               <span className="mr-2">📍</span>
               <span>
-                Sua localização: {location.latitude.toFixed(6)},{' '}
-                {location.longitude.toFixed(6)}
+                Sua localização: {location.latitude.toFixed(4)},{' '}
+                {location.longitude.toFixed(4)}
               </span>
             </div>
             {serviceOrder?.clientLocation && (
               <div className="flex items-center text-gray-600">
                 <span className="mr-2">🏠</span>
                 <span>
-                  Local do cliente: {serviceOrder.clientLocation.latitude.toFixed(6)},{' '}
-                  {serviceOrder.clientLocation.longitude.toFixed(6)}
+                  Local do cliente: {serviceOrder.clientLocation.latitude.toFixed(4)},{' '}
+                  {serviceOrder.clientLocation.longitude.toFixed(4)}
                 </span>
               </div>
             )}
