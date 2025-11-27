@@ -28,7 +28,13 @@ export function exportOrdersToCSV(orders, filename = 'ordens-servico.csv') {
 
   // Format date for display
   const formatDate = (dateString) => {
+    if (!dateString) {
+      return '';
+    }
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return '';
+    }
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -47,9 +53,9 @@ export function exportOrdersToCSV(orders, filename = 'ordens-servico.csv') {
 
   // Build CSV rows
   const rows = orders.map((order) => [
-    escapeCSVField(order.id),
-    escapeCSVField(order.cliente),
-    escapeCSVField(order.tecnico),
+    escapeCSVField(order.id ?? ''),
+    escapeCSVField(order.cliente ?? ''),
+    escapeCSVField(order.tecnico ?? ''),
     escapeCSVField(formatStatus(order.status)),
     escapeCSVField(formatDate(order.data)),
   ]);
