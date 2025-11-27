@@ -38,6 +38,8 @@ function isValidIPv4(ip) {
   if (parts.length !== 4) return false;
   
   for (const part of parts) {
+    // Reject empty parts
+    if (part === '') return false;
     // Check that each part is a valid number (0-255)
     if (!/^\d+$/.test(part)) return false;
     const num = parseInt(part, 10);
@@ -135,6 +137,7 @@ function isValidImageUrl(url) {
  * Fetches an image from a URL and returns it as a buffer
  * @param {string} imageUrl - The URL of the image to fetch
  * @returns {Promise<Buffer>} - The image as a buffer
+/**
  */
 async function fetchImageBuffer(imageUrl) {
   // Validate URL before fetching
@@ -147,6 +150,12 @@ async function fetchImageBuffer(imageUrl) {
     const protocol = parsedUrl.protocol === 'https:' ? https : http;
     
     const request = protocol.get(imageUrl, (response) => {
+      // Explicitly reject redirects (3xx status codes) to prevent SSRF via redirects
+      if (response.statusCode >= 300 && response.statusCode < 400) {
+        reject(new Error('Redirects are not allowed for security reasons'));
+        return;
+      }
+      
       if (response.statusCode !== 200) {
         reject(new Error(`Failed to fetch image: ${response.statusCode}`));
         return;
@@ -170,7 +179,7 @@ async function fetchImageBuffer(imageUrl) {
 
 /**
  * Generates a Technical Report PDF for a Service Order
- * 
+ *
  * @param {string} orderId - The ID of the service order
  * @param {Object} prisma - Prisma client instance
  * @returns {Promise<Buffer>} - The PDF document as a buffer
