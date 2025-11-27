@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchTechnicianOrders } from '../services/api';
+import { useOrders } from '../hooks/useOrders';
 import { OrderCard } from '../components/OrderCard';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { ServiceOrder, RootStackParamList } from '../types';
 
 type MyOrdersNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MyOrders'>;
@@ -20,40 +21,14 @@ export function MyOrdersScreen() {
   const navigation = useNavigation<MyOrdersNavigationProp>();
   const { user, token } = useAuth();
   
-  const [orders, setOrders] = useState<ServiceOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadOrders = useCallback(async () => {
-    if (!user || !token) {
-      setError('Usuário não autenticado');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setError(null);
-      const response = await fetchTechnicianOrders(user.id, token);
-      setOrders(response.serviceOrders);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar ordens';
-      setError(errorMessage);
-      console.error('Error loading orders:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user, token]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadOrders();
-  }, [loadOrders]);
+  const {
+    orders,
+    isLoading,
+    isRefreshing,
+    isOffline,
+    error,
+    refresh,
+  } = useOrders(user?.id, token);
 
   const handleOrderPress = useCallback((order: ServiceOrder) => {
     navigation.navigate('OrderDetails', { order });
@@ -101,6 +76,7 @@ export function MyOrdersScreen() {
 
   return (
     <View style={styles.container}>
+      <OfflineBanner visible={isOffline} />
       <FlatList
         data={orders}
         renderItem={renderOrderItem}
@@ -110,7 +86,7 @@ export function MyOrdersScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={handleRefresh}
+            onRefresh={refresh}
             colors={['#3498db']}
             tintColor="#3498db"
           />
