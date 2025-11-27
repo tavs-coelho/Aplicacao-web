@@ -70,6 +70,8 @@ model ServiceOrder {
   dataInicio       DateTime?
   dataFim          DateTime?
   relatorioTecnico String?
+  rating           Int?               // Avaliação do cliente (1 a 5)
+  feedback         String?            // Comentário opcional do cliente
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 

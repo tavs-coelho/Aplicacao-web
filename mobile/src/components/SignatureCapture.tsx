@@ -5,9 +5,10 @@ import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas
 interface SignatureCaptureProps {
   onConfirm: (signatureBase64: string) => void;
   onClear?: () => void;
+  onSignatureComplete?: () => void;
 }
 
-export function SignatureCapture({ onConfirm, onClear }: SignatureCaptureProps) {
+export function SignatureCapture({ onConfirm, onClear, onSignatureComplete }: SignatureCaptureProps) {
   const signatureRef = useRef<SignatureViewRef>(null);
 
   const handleConfirm = () => {
@@ -22,6 +23,8 @@ export function SignatureCapture({ onConfirm, onClear }: SignatureCaptureProps) 
   const handleOK = (signature: string) => {
     // The signature is returned as a data URL (e.g., "data:image/png;base64,...")
     onConfirm(signature);
+    // Call the callback to navigate to the rating screen after signature is captured
+    onSignatureComplete?.();
   };
 
   const handleEmpty = () => {
