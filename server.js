@@ -3,6 +3,7 @@ const cors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const { gerarRelatorio } = require('./src/services/relatorioService');
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
@@ -407,6 +408,46 @@ async function gerarLembreteManutencao(serviceOrder) {
   }
 }
 
+// GET /orders/:id/relatorio - Generate and download Technical Report PDF
+app.get('/orders/:id/relatorio', async (request, reply) => {
+  // Verify authentication
+  const user = verifyToken(request);
+  if (!user) {
+    return reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Token de autenticação inválido ou ausente',
+    });
+  }
+
+  const { id } = request.params;
+
+  try {
+    // Generate the PDF report
+    const pdfBuffer = await gerarRelatorio(id, prisma);
+
+    // Set response headers for PDF download
+    reply.header('Content-Type', 'application/pdf');
+    reply.header('Content-Disposition', `attachment; filename="relatorio-os-${id}.pdf"`);
+    reply.header('Content-Length', pdfBuffer.length);
+
+    return reply.send(pdfBuffer);
+  } catch (error) {
+    app.log.error(error);
+    
+    if (error.message === 'Ordem de serviço não encontrada') {
+      return reply.status(404).send({
+        error: 'Not Found',
+        message: error.message,
+      });
+    }
+
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao gerar relatório técnico',
+    });
+  }
+});
+
 // Graceful shutdown
 const gracefulShutdown = async () => {
   await prisma.$disconnect();
@@ -435,5 +476,5 @@ start();
 // Exporta componentes para uso em outros módulos ou testes
 // NOTA: Esta exportação é usada apenas para testes e não afeta a funcionalidade do servidor
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { gerarLembreteManutencao, app, prisma };
+  module.exports = { gerarLembreteManutencao, gerarRelatorio, app, prisma };
 }
