@@ -137,7 +137,6 @@ function isValidImageUrl(url) {
  * Fetches an image from a URL and returns it as a buffer
  * @param {string} imageUrl - The URL of the image to fetch
  * @returns {Promise<Buffer>} - The image as a buffer
-/**
  */
 async function fetchImageBuffer(imageUrl) {
   // Validate URL before fetching
