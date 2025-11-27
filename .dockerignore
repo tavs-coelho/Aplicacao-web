@@ -26,8 +26,10 @@ Thumbs.db
 dist/
 build/
 
-# Documentation
-*.md
+# Documentation (not needed for runtime)
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE.md
 
 # Tests
 *.test.js

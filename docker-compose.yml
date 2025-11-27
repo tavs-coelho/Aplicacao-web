@@ -29,7 +29,7 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-fielduser}:${POSTGRES_PASSWORD:-fieldpass}@db:5432/${POSTGRES_DB:-fieldservice}
-      JWT_SECRET: ${JWT_SECRET:-sua-chave-secreta-aqui}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET environment variable is required}
       PORT: 3000
       HOST: 0.0.0.0
       CORS_ORIGIN: ${CORS_ORIGIN:-true}

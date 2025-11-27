@@ -23,17 +23,22 @@ Este comando irá:
 - **Documentação Swagger**: http://localhost:3000/docs
 - **Health Check**: http://localhost:3000/health
 
-### Variáveis de Ambiente (opcional)
+### Variáveis de Ambiente
 
-Você pode personalizar as configurações criando um arquivo `.env` na raiz do projeto:
+Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis (JWT_SECRET é obrigatório):
 
 ```env
+# Obrigatório - Use uma chave forte e aleatória
+JWT_SECRET=sua-chave-secreta-muito-forte-e-aleatoria-aqui
+
+# Opcionais - valores padrão mostrados
 POSTGRES_USER=fielduser
 POSTGRES_PASSWORD=fieldpass
 POSTGRES_DB=fieldservice
-JWT_SECRET=sua-chave-secreta-segura
 CORS_ORIGIN=true
 ```
+
+**Nota:** A variável `JWT_SECRET` é obrigatória. O sistema não iniciará sem ela.
 
 ### Comandos úteis
 
