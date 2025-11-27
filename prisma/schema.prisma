@@ -1,0 +1,102 @@
+// This is your Prisma schema file for Field Service Management System
+// (Sistema de Gestão de Equipes Externas)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para tipo de usuário (ADMIN ou TECNICO)
+enum UserType {
+  ADMIN
+  TECNICO
+}
+
+// Enum para status da ordem de serviço
+enum ServiceOrderStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDO
+}
+
+// Enum para tipo de foto (ANTES ou DEPOIS)
+enum PhotoType {
+  ANTES
+  DEPOIS
+}
+
+// Model: User (Usuário do sistema - Admin ou Técnico)
+model User {
+  id            String         @id @default(uuid())
+  nome          String
+  email         String         @unique
+  senha         String         // IMPORTANTE: Armazenar apenas senhas hashadas (ex: bcrypt)
+  tipo          UserType
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  // Relacionamento: Um técnico pode ter várias ordens de serviço
+  // NOTA: A validação de que apenas usuários TECNICO podem ser atribuídos
+  // a ordens de serviço deve ser feita na camada de aplicação
+  serviceOrders ServiceOrder[]
+
+  @@map("users")
+}
+
+// Model: Client (Cliente)
+model Client {
+  id            String         @id @default(uuid())
+  nome          String
+  endereco      String
+  latitude      Float
+  longitude     Float
+  telefone      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  serviceOrders ServiceOrder[] // Relacionamento: Um cliente pode ter várias ordens de serviço
+
+  @@map("clients")
+}
+
+// Model: ServiceOrder (Ordem de Serviço)
+model ServiceOrder {
+  id               String             @id @default(uuid())
+  dataAgendada     DateTime
+  status           ServiceOrderStatus @default(PENDENTE)
+  dataInicio       DateTime?
+  dataFim          DateTime?
+  relatorioTecnico String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  // Relacionamento com Técnico (User)
+  tecnicoId String
+  tecnico   User   @relation(fields: [tecnicoId], references: [id])
+
+  // Relacionamento com Cliente
+  clienteId String
+  cliente   Client @relation(fields: [clienteId], references: [id])
+
+  // Relacionamento com Fotos
+  photos ServicePhoto[] // Uma ordem de serviço pode ter várias fotos
+
+  @@map("service_orders")
+}
+
+// Model: ServicePhoto (Foto do Serviço)
+model ServicePhoto {
+  id        String    @id @default(uuid())
+  url       String
+  tipo      PhotoType
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relacionamento com Ordem de Serviço
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@map("service_photos")
+}
