@@ -51,7 +51,7 @@ export async function submitRating(
     },
     body: JSON.stringify({
       rating,
-      feedback: feedback || undefined,
+      feedback: feedback.trim() || undefined,
     }),
   });
 
