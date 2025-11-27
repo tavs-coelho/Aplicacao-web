@@ -113,8 +113,9 @@ async function gerarLembreteManutencao(serviceOrder) {
 
   // Calcula a data sugerida para a próxima visita (hoje + 180 dias)
   const dataAtual = new Date();
-  const dataSugerida = new Date(dataAtual);
-  dataSugerida.setDate(dataSugerida.getDate() + 180);
+  const diasParaProximaVisita = 180;
+  const milissegundosPorDia = 24 * 60 * 60 * 1000;
+  const dataSugerida = new Date(dataAtual.getTime() + (diasParaProximaVisita * milissegundosPorDia));
 
   try {
     // Busca informações do cliente para personalizar a mensagem
@@ -144,9 +145,6 @@ async function gerarLembreteManutencao(serviceOrder) {
   }
 }
 
-// Exporta a função para uso em outros módulos ou testes
-module.exports = { gerarLembreteManutencao };
-
 // Graceful shutdown
 const gracefulShutdown = async () => {
   await prisma.$disconnect();
@@ -171,3 +169,9 @@ const start = async () => {
 };
 
 start();
+
+// Exporta componentes para uso em outros módulos ou testes
+// NOTA: Esta exportação é usada apenas para testes e não afeta a funcionalidade do servidor
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { gerarLembreteManutencao, app, prisma };
+}
