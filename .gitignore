@@ -26,6 +26,9 @@ npm-debug.log*
 dist/
 build/
 
+# Uploads (user-uploaded files)
+uploads/
+
 # Mobile (Expo)
 mobile/.expo/
 mobile/dist/
