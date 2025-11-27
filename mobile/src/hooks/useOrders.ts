@@ -3,7 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchTechnicianOrders } from '../services/api';
 import { ServiceOrder } from '../types';
 
-const ORDERS_CACHE_KEY = 'cached_orders';
+const ORDERS_CACHE_KEY_PREFIX = 'cached_orders_';
+
+/**
+ * Gets the user-specific cache key to prevent data leakage between users.
+ */
+function getCacheKey(userId: string): string {
+  return `${ORDERS_CACHE_KEY_PREFIX}${userId}`;
+}
 
 interface UseOrdersResult {
   orders: ServiceOrder[];
@@ -34,6 +41,8 @@ export function useOrders(userId: string | undefined, token: string | null): Use
       return;
     }
 
+    const cacheKey = getCacheKey(userId);
+
     try {
       setError(null);
       setIsOffline(false);
@@ -42,13 +51,13 @@ export function useOrders(userId: string | undefined, token: string | null): Use
       setOrders(response.serviceOrders);
       
       // Cache the orders for offline use
-      await AsyncStorage.setItem(ORDERS_CACHE_KEY, JSON.stringify(response.serviceOrders));
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(response.serviceOrders));
     } catch (err) {
       console.error('Error loading orders:', err);
       
       // Try to load cached orders when API fails
       try {
-        const cachedData = await AsyncStorage.getItem(ORDERS_CACHE_KEY);
+        const cachedData = await AsyncStorage.getItem(cacheKey);
         if (cachedData) {
           const cachedOrders = JSON.parse(cachedData) as ServiceOrder[];
           setOrders(cachedOrders);
