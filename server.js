@@ -5,6 +5,7 @@ const multipart = require('@fastify/multipart');
 const fastifyStatic = require('@fastify/static');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { gerarRelatorio } = require('./src/services/relatorioService');
@@ -80,9 +81,9 @@ app.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// POST /upload - Upload an image file
+// POST /upload - Upload an image file (protected route - requires authentication)
 // Returns the public URL to access the uploaded image
-app.post('/upload', async (request, reply) => {
+app.post('/upload', { preHandler: authMiddleware }, async (request, reply) => {
   try {
     // Check if request has content type for multipart
     const contentType = request.headers['content-type'] || '';
@@ -102,19 +103,26 @@ app.post('/upload', async (request, reply) => {
       });
     }
 
-    // Validate that file is an image
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedMimeTypes.includes(data.mimetype)) {
+    // Validate that file is an image and get safe extension from mimetype
+    const mimeToExtension = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+    };
+
+    const fileExtension = mimeToExtension[data.mimetype];
+    if (!fileExtension) {
       return reply.status(400).send({
         error: 'Bad Request',
         message: 'Tipo de arquivo não permitido. Apenas imagens (JPEG, PNG, GIF, WEBP) são aceitas.',
       });
     }
 
-    // Generate unique filename using timestamp
+    // Generate unique filename using timestamp and random bytes for security
     const timestamp = Date.now();
-    const fileExtension = path.extname(data.filename) || `.${data.mimetype.split('/')[1]}`;
-    const uniqueFilename = `${timestamp}${fileExtension}`;
+    const randomSuffix = crypto.randomBytes(8).toString('hex');
+    const uniqueFilename = `${timestamp}-${randomSuffix}${fileExtension}`;
     const filePath = path.join(uploadsDir, uniqueFilename);
 
     // Save file to uploads directory
@@ -126,10 +134,9 @@ app.post('/upload', async (request, reply) => {
       writeStream.on('error', reject);
     });
 
-    // Build public URL
-    const host = process.env.HOST || 'localhost';
-    const port = process.env.PORT || 3000;
-    const publicUrl = `http://${host}:${port}/uploads/${uniqueFilename}`;
+    // Build public URL - use BASE_URL env var for flexibility (supports https)
+    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const publicUrl = `${baseUrl}/uploads/${uniqueFilename}`;
 
     return reply.status(201).send({
       message: 'Arquivo enviado com sucesso',
