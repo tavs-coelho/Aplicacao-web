@@ -1,12 +1,14 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
+import { ToastContainer } from './Toast';
+import useSocket from '../hooks/useSocket';
 
 const sampleServiceOrders = [
   {
@@ -453,6 +455,37 @@ function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
+  const [toasts, setToasts] = useState([]);
+
+  // Handle order completed events from Socket.IO
+  const handleOrderCompleted = useCallback((data) => {
+    const { tecnicoNome, clienteNome, orderId } = data;
+    
+    // Add a new toast notification
+    const newToast = {
+      id: Date.now(),
+      message: `O técnico ${tecnicoNome} acabou de finalizar a OS no cliente ${clienteNome}`,
+      type: 'success',
+      duration: 7000,
+    };
+    
+    setToasts(prev => [...prev, newToast]);
+    
+    // Update the order in the list if it exists
+    setOrders(prev => 
+      prev.map(o => 
+        o.id === orderId ? { ...o, status: 'CONCLUIDO' } : o
+      )
+    );
+  }, []);
+
+  // Initialize Socket.IO connection
+  useSocket(handleOrderCompleted);
+
+  // Remove toast from the list
+  const handleRemoveToast = useCallback((toastId) => {
+    setToasts(prev => prev.filter(t => t.id !== toastId));
+  }, []);
 
   const handleFinalizeOrder = (order) => {
     setSelectedOrder(order);
@@ -507,10 +540,8 @@ function Dashboard() {
       <Sidebar activeView={activeView} onViewChange={handleViewChange} />
       <main className="flex-1 p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-600">
-            Bem-vindo ao Sistema de Gestão de Equipes Externas
-          </p>
+          <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
+          <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
 
         {/* Stats cards */}
@@ -576,9 +607,6 @@ function Dashboard() {
 
         {/* Service Orders Table */}
         <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
-          <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
-          <p className="text-gray-600">{viewInfo.subtitle}</p>
-        </div>
 
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
@@ -658,6 +686,9 @@ function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* Toast notifications for real-time updates */}
+      <ToastContainer toasts={toasts} onRemoveToast={handleRemoveToast} />
 
       {/* Finalize Order Modal */}
       {selectedOrder && (
