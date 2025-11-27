@@ -1,6 +1,9 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
+import { useState } from 'react';
+import PhotoCapture from './PhotoCapture';
+
 const sampleServiceOrders = [
   {
     id: '1',
@@ -128,7 +131,7 @@ function Sidebar() {
 }
 
 // Service Orders Table component
-function ServiceOrdersTable({ orders }) {
+function ServiceOrdersTable({ orders, onFinalizeOrder }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -176,6 +179,12 @@ function ServiceOrdersTable({ orders }) {
               >
                 Status
               </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Ações
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -197,6 +206,18 @@ function ServiceOrdersTable({ orders }) {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <StatusBadge status={order.status} />
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {order.status === 'EM_ANDAMENTO' && (
+                    <button
+                      type="button"
+                      onClick={() => onFinalizeOrder(order)}
+                      className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    >
+                      <span className="mr-1">✅</span>
+                      Finalizar
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -206,8 +227,146 @@ function ServiceOrdersTable({ orders }) {
   );
 }
 
+// Modal component for finalizing service order with photo capture
+function FinalizeOrderModal({ order, onClose, onSubmit }) {
+  const [photos, setPhotos] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePhotosChange = (newPhotos) => {
+    setPhotos(newPhotos);
+  };
+
+  const handleSubmit = async () => {
+    if (photos.length === 0) {
+      alert('Por favor, adicione pelo menos uma foto para finalizar a OS.');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      // Here you would send photos to the backend
+      // const formData = new FormData();
+      // photos.forEach((photo, index) => {
+      //   formData.append(`photo_${index}`, photo.file);
+      // });
+      // await fetch(`/api/orders/${order.id}/finalize`, { method: 'POST', body: formData });
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      onSubmit(order, photos);
+    } catch (error) {
+      console.error('Error finalizing order:', error);
+      alert('Erro ao finalizar a OS. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">
+                  Finalizar Ordem de Serviço
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Cliente: {order.cliente} | Técnico: {order.tecnico}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Fechar modal"
+              >
+                <span className="text-2xl">×</span>
+              </button>
+            </div>
+          </div>
+          
+          {/* Content */}
+          <div className="p-6">
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <span className="font-medium">Importante:</span> Para finalizar a OS, é necessário adicionar pelo menos uma foto documentando o serviço realizado.
+              </p>
+            </div>
+            
+            <PhotoCapture onPhotosChange={handlePhotosChange} />
+          </div>
+          
+          {/* Footer */}
+          <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-xl">
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting || photos.length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="mr-2 animate-spin">⏳</span>
+                    Finalizando...
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-2">✅</span>
+                    Finalizar OS ({photos.length} {photos.length === 1 ? 'foto' : 'fotos'})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main Dashboard component
 function Dashboard() {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [orders, setOrders] = useState(sampleServiceOrders);
+
+  const handleFinalizeOrder = (order) => {
+    setSelectedOrder(order);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedOrder(null);
+  };
+
+  const handleSubmitFinalization = (order, photos) => {
+    // Update order status to CONCLUIDO
+    setOrders(prev => 
+      prev.map(o => 
+        o.id === order.id ? { ...o, status: 'CONCLUIDO' } : o
+      )
+    );
+    setSelectedOrder(null);
+    alert(`OS #${order.id} finalizada com sucesso! ${photos.length} foto(s) enviada(s).`);
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
@@ -229,7 +388,7 @@ function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm text-gray-500">Total de Ordens</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {sampleServiceOrders.length}
+                  {orders.length}
                 </p>
               </div>
             </div>
@@ -243,7 +402,7 @@ function Dashboard() {
                 <p className="text-sm text-gray-500">Concluídas</p>
                 <p className="text-2xl font-bold text-gray-800">
                   {
-                    sampleServiceOrders.filter((o) => o.status === 'CONCLUIDO')
+                    orders.filter((o) => o.status === 'CONCLUIDO')
                       .length
                   }
                 </p>
@@ -259,7 +418,7 @@ function Dashboard() {
                 <p className="text-sm text-gray-500">Pendentes</p>
                 <p className="text-2xl font-bold text-gray-800">
                   {
-                    sampleServiceOrders.filter((o) => o.status === 'PENDENTE')
+                    orders.filter((o) => o.status === 'PENDENTE')
                       .length
                   }
                 </p>
@@ -275,7 +434,7 @@ function Dashboard() {
                 <p className="text-sm text-gray-500">Em Andamento</p>
                 <p className="text-2xl font-bold text-gray-800">
                   {
-                    sampleServiceOrders.filter(
+                    orders.filter(
                       (o) => o.status === 'EM_ANDAMENTO'
                     ).length
                   }
@@ -286,8 +445,17 @@ function Dashboard() {
         </div>
 
         {/* Service Orders Table */}
-        <ServiceOrdersTable orders={sampleServiceOrders} />
+        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
       </main>
+
+      {/* Finalize Order Modal */}
+      {selectedOrder && (
+        <FinalizeOrderModal
+          order={selectedOrder}
+          onClose={handleCloseModal}
+          onSubmit={handleSubmitFinalization}
+        />
+      )}
     </div>
   );
 }
