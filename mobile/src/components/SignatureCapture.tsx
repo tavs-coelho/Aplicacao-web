@@ -25,8 +25,7 @@ export function SignatureCapture({ onConfirm, onClear }: SignatureCaptureProps) 
   };
 
   const handleEmpty = () => {
-    // Called when trying to confirm an empty signature
-    console.log('Assinatura vazia');
+    // Called when trying to confirm an empty signature - no action needed
   };
 
   return (
