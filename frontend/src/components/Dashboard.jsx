@@ -2,6 +2,7 @@
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
 import { useState } from 'react';
+import ServiceOrderDetails from './ServiceOrderDetails';
 import PhotoCapture from './PhotoCapture';
 
 const sampleServiceOrders = [
@@ -11,6 +12,7 @@ const sampleServiceOrders = [
     tecnico: 'Carlos Santos',
     data: '2024-01-15',
     status: 'CONCLUIDO',
+    clientLocation: { latitude: -23.550520, longitude: -46.633308 }, // São Paulo
   },
   {
     id: '2',
@@ -18,6 +20,7 @@ const sampleServiceOrders = [
     tecnico: 'Pedro Costa',
     data: '2024-01-16',
     status: 'PENDENTE',
+    clientLocation: { latitude: -22.906847, longitude: -43.172896 }, // Rio de Janeiro
   },
   {
     id: '3',
@@ -25,6 +28,7 @@ const sampleServiceOrders = [
     tecnico: 'Carlos Santos',
     data: '2024-01-17',
     status: 'EM_ANDAMENTO',
+    clientLocation: { latitude: -19.919052, longitude: -43.938639 }, // Belo Horizonte
   },
   {
     id: '4',
@@ -32,6 +36,7 @@ const sampleServiceOrders = [
     tecnico: 'Ana Pereira',
     data: '2024-01-18',
     status: 'CONCLUIDO',
+    clientLocation: { latitude: -25.428954, longitude: -49.267137 }, // Curitiba
   },
   {
     id: '5',
@@ -39,6 +44,7 @@ const sampleServiceOrders = [
     tecnico: 'Pedro Costa',
     data: '2024-01-19',
     status: 'PENDENTE',
+    clientLocation: { latitude: -30.027704, longitude: -51.228735 }, // Porto Alegre
   },
 ];
 
@@ -131,6 +137,7 @@ function Sidebar() {
 }
 
 // Service Orders Table component
+function ServiceOrdersTable({ orders, onSelectOrder }) {
 function ServiceOrdersTable({ orders, onFinalizeOrder }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -207,6 +214,13 @@ function ServiceOrdersTable({ orders, onFinalizeOrder }) {
                   <StatusBadge status={order.status} />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => onSelectOrder(order)}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Ver Detalhes
+                  </button>
                   {order.status === 'EM_ANDAMENTO' && (
                     <button
                       type="button"
@@ -346,6 +360,19 @@ function FinalizeOrderModal({ order, onClose, onSubmit }) {
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const handleSelectOrder = (order) => {
+    setSelectedOrder(order);
+  };
+
+  const handleBack = () => {
+    setSelectedOrder(null);
+  };
+
+  const handleStartService = (orderId) => {
+    // Handle service start logic here
+    console.log('Starting service for order:', orderId);
+    alert(`Serviço iniciado para a ordem ${orderId}!`);
   const [orders, setOrders] = useState(sampleServiceOrders);
 
   const handleFinalizeOrder = (order) => {
@@ -371,6 +398,51 @@ function Dashboard() {
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
       <main className="flex-1 p-8">
+        {selectedOrder ? (
+          <ServiceOrderDetails
+            serviceOrder={selectedOrder}
+            onBack={handleBack}
+            onStartService={handleStartService}
+          />
+        ) : (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+              <p className="text-gray-600">
+                Bem-vindo ao Sistema de Gestão de Equipes Externas
+              </p>
+            </div>
+
+            {/* Stats cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <span className="text-2xl">📋</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Total de Ordens</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {sampleServiceOrders.length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-green-100 rounded-full">
+                    <span className="text-2xl">✅</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Concluídas</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {
+                        sampleServiceOrders.filter((o) => o.status === 'CONCLUIDO')
+                          .length
+                      }
+                    </p>
+                  </div>
+                </div>
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
           <p className="text-gray-600">
@@ -423,13 +495,38 @@ function Dashboard() {
                   }
                 </p>
               </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">🔄</span>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-yellow-100 rounded-full">
+                    <span className="text-2xl">⏳</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Pendentes</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {
+                        sampleServiceOrders.filter((o) => o.status === 'PENDENTE')
+                          .length
+                      }
+                    </p>
+                  </div>
+                </div>
               </div>
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <span className="text-2xl">🔄</span>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-500">Em Andamento</p>
+                    <p className="text-2xl font-bold text-gray-800">
+                      {
+                        sampleServiceOrders.filter(
+                          (o) => o.status === 'EM_ANDAMENTO'
+                        ).length
+                      }
+                    </p>
+                  </div>
+                </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-500">Em Andamento</p>
                 <p className="text-2xl font-bold text-gray-800">
@@ -441,9 +538,11 @@ function Dashboard() {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
 
+            {/* Service Orders Table */}
+            <ServiceOrdersTable orders={sampleServiceOrders} onSelectOrder={handleSelectOrder} />
+          </>
+        )}
         {/* Service Orders Table */}
         <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
       </main>
