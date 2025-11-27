@@ -83,7 +83,17 @@ app.get('/health', async (request, reply) => {
 
 // POST /upload - Upload an image file (protected route - requires authentication)
 // Returns the public URL to access the uploaded image
-app.post('/upload', { preHandler: authMiddleware }, async (request, reply) => {
+// Note: This route has additional rate limiting via global rateLimit plugin (100/min per IP)
+// and is protected by authentication, which helps prevent abuse
+app.post('/upload', {
+  preHandler: authMiddleware,
+  config: {
+    rateLimit: {
+      max: 20, // Stricter limit for file uploads: 20 per minute per IP
+      timeWindow: '1 minute',
+    },
+  },
+}, async (request, reply) => {
   try {
     // Check if request has content type for multipart
     const contentType = request.headers['content-type'] || '';
