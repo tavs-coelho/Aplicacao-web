@@ -1,0 +1,43 @@
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:16-alpine
+    container_name: fieldservice-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fielduser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fieldpass}
+      POSTGRES_DB: ${POSTGRES_DB:-fieldservice}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fielduser} -d ${POSTGRES_DB:-fieldservice}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fieldservice-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fielduser}:${POSTGRES_PASSWORD:-fieldpass}@db:5432/${POSTGRES_DB:-fieldservice}
+      JWT_SECRET: ${JWT_SECRET:-sua-chave-secreta-aqui}
+      PORT: 3000
+      HOST: 0.0.0.0
+      CORS_ORIGIN: ${CORS_ORIGIN:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma migrate deploy && node server.js"
+
+volumes:
+  postgres_data:
