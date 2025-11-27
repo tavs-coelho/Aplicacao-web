@@ -9,12 +9,16 @@ const prisma = new PrismaClient();
 // Initialize Fastify with logging
 const app = fastify({ logger: true });
 
-// JWT Secret - In production, use environment variable
+// JWT Secret - Must be set via environment variable in production
 const JWT_SECRET = process.env.JWT_SECRET || 'sua-chave-secreta-aqui';
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET not set. Using default secret. This is insecure for production!');
+}
 
 // Register CORS plugin
+// WARNING: origin: true allows all origins. In production, configure specific trusted domains.
 app.register(cors, {
-  origin: true, // Allow all origins - configure appropriately for production
+  origin: process.env.CORS_ORIGIN || true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
 });
@@ -49,8 +53,9 @@ app.post('/login', async (request, reply) => {
       });
     }
 
-    // Note: In production, use bcrypt.compare() to verify hashed password
-    // For this basic implementation, we do a simple comparison
+    // WARNING: In production, use bcrypt.compare() with hashed passwords.
+    // Example: const isValid = await bcrypt.compare(senha, user.senha);
+    // For this basic implementation, doing simple comparison.
     if (user.senha !== senha) {
       return reply.status(401).send({
         error: 'Unauthorized',
