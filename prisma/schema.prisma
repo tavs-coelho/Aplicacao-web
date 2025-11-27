@@ -48,15 +48,16 @@ model User {
 
 // Model: Client (Cliente)
 model Client {
-  id            String         @id @default(uuid())
-  nome          String
-  endereco      String
-  latitude      Float
-  longitude     Float
-  telefone      String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  serviceOrders ServiceOrder[] // Relacionamento: Um cliente pode ter várias ordens de serviço
+  id                   String                @id @default(uuid())
+  nome                 String
+  endereco             String
+  latitude             Float
+  longitude            Float
+  telefone             String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  serviceOrders        ServiceOrder[]        // Relacionamento: Um cliente pode ter várias ordens de serviço
+  maintenanceReminders MaintenanceReminder[] // Relacionamento: Um cliente pode ter vários lembretes de manutenção
 
   @@map("clients")
 }
@@ -83,6 +84,9 @@ model ServiceOrder {
   // Relacionamento com Fotos
   photos ServicePhoto[] // Uma ordem de serviço pode ter várias fotos
 
+  // Relacionamento com Lembretes de Manutenção
+  maintenanceReminders MaintenanceReminder[] // Uma ordem de serviço pode gerar lembretes de manutenção
+
   @@map("service_orders")
 }
 
@@ -99,4 +103,23 @@ model ServicePhoto {
   serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
   @@map("service_photos")
+}
+
+// Model: MaintenanceReminder (Lembrete de Manutenção Preventiva)
+model MaintenanceReminder {
+  id                  String   @id @default(uuid())
+  dataSugerida        DateTime // Data sugerida para a visita preventiva (data de conclusão + 180 dias)
+  mensagem            String   // Mensagem do lembrete
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relacionamento com Cliente
+  clienteId String
+  cliente   Client @relation(fields: [clienteId], references: [id])
+
+  // Relacionamento com Ordem de Serviço que originou o lembrete
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id])
+
+  @@map("maintenance_reminders")
 }
