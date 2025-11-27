@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import PhotoCapture from './PhotoCapture';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
+import { exportOrdersToCSV } from '../utils/csvExport';
 
 const sampleServiceOrders = [
   {
@@ -152,7 +153,7 @@ function Sidebar({ activeView, onViewChange }) {
 }
 
 // Service Orders Table component
-function ServiceOrdersTable({ orders, onFinalizeOrder }) {
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -164,13 +165,23 @@ function ServiceOrdersTable({ orders, onFinalizeOrder }) {
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Ordens de Serviço
-        </h2>
-        <p className="text-sm text-gray-500">
-          Lista de todas as ordens de serviço
-        </p>
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">
+            Ordens de Serviço
+          </h2>
+          <p className="text-sm text-gray-500">
+            Lista de todas as ordens de serviço
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onExport}
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          <span className="mr-2">📥</span>
+          Exportar Relatório
+        </button>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -456,6 +467,10 @@ function Dashboard() {
     setSelectedOrder(null);
   };
 
+  const handleExportOrders = () => {
+    exportOrdersToCSV(orders);
+  };
+
   const handleSubmitFinalization = (order, photos) => {
     // Update order status to CONCLUIDO
     setOrders(prev => 
@@ -558,13 +573,13 @@ function Dashboard() {
                 </div>
               </div>
             </div>
-            <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
+            <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} onExport={handleExportOrders} />
           </>
         )}
 
         {/* Orders View */}
         {activeView === 'orders' && (
-          <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
+          <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} onExport={handleExportOrders} />
         )}
 
         {/* Clients View */}
