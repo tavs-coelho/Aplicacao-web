@@ -1,6 +1,8 @@
 const fastify = require('fastify');
 const cors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
+const swagger = require('@fastify/swagger');
+const swaggerUi = require('@fastify/swagger-ui');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const { gerarRelatorio } = require('./src/services/relatorioService');
@@ -10,13 +12,62 @@ const { authMiddleware } = require('./src/middleware/authMiddleware');
 const prisma = new PrismaClient();
 
 // Initialize Fastify with logging
-const app = fastify({ logger: true });
+// Configure ajvOptions to allow 'example' keyword for Swagger documentation
+const app = fastify({
+  logger: true,
+  ajv: {
+    customOptions: {
+      keywords: ['example'],
+    },
+  },
+});
 
 // JWT Secret - Must be set via environment variable in production
 const JWT_SECRET = process.env.JWT_SECRET || 'sua-chave-secreta-aqui';
 if (!process.env.JWT_SECRET) {
   console.warn('WARNING: JWT_SECRET not set. Using default secret. This is insecure for production!');
 }
+
+// Register Swagger for API documentation
+app.register(swagger, {
+  openapi: {
+    info: {
+      title: 'Sistema de Gestão de Equipes Externas',
+      description: 'API para gerenciamento de ordens de serviço, técnicos e clientes (Field Service Management System)',
+      version: '1.0.0',
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+        description: 'Servidor de Desenvolvimento',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+    tags: [
+      { name: 'Auth', description: 'Autenticação de usuários' },
+      { name: 'Orders', description: 'Gerenciamento de ordens de serviço' },
+      { name: 'Health', description: 'Verificação de saúde da API' },
+    ],
+  },
+});
+
+// Register Swagger UI
+app.register(swaggerUi, {
+  routePrefix: '/docs',
+  uiConfig: {
+    docExpansion: 'list',
+    deepLinking: true,
+  },
+  staticCSP: true,
+});
 
 // Register CORS plugin
 // WARNING: origin: true allows all origins. In production, configure specific trusted domains.
@@ -38,27 +89,115 @@ app.register(rateLimit, {
   }),
 });
 
-// Helper function to verify JWT token and extract user info
-const verifyToken = (request) => {
-  const authHeader = request.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-  const token = authHeader.substring(7);
-  try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
-};
+// Register routes plugin to ensure routes are collected by Swagger
+app.register(async function routes(fastifyInstance) {
+  // Helper function to verify JWT token and extract user info
+  const verifyToken = (request) => {
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+    const token = authHeader.substring(7);
+    try {
+      return jwt.verify(token, JWT_SECRET);
+    } catch {
+      return null;
+    }
+  };
 
-// Health check route
-app.get('/health', async (request, reply) => {
+  // Health check route
+  fastifyInstance.get('/health', {
+  schema: {
+    tags: ['Health'],
+    summary: 'Verificar saúde da API',
+    description: 'Retorna o status da API e timestamp atual',
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', example: 'ok' },
+          timestamp: { type: 'string', format: 'date-time', example: '2024-01-01T12:00:00.000Z' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
 // GET /orders - List all service orders (protected route - requires authentication)
-app.get('/orders', { preHandler: authMiddleware }, async (request, reply) => {
+fastifyInstance.get('/orders', {
+  preHandler: authMiddleware,
+  schema: {
+    tags: ['Orders'],
+    summary: 'Listar todas as ordens de serviço',
+    description: 'Retorna todas as ordens de serviço com informações do técnico, cliente e fotos',
+    security: [{ bearerAuth: [] }],
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          total: { type: 'integer', example: 10 },
+          serviceOrders: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                dataAgendada: { type: 'string', format: 'date-time' },
+                status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'] },
+                dataInicio: { type: 'string', format: 'date-time', nullable: true },
+                dataFim: { type: 'string', format: 'date-time', nullable: true },
+                tecnico: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    nome: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                  },
+                },
+                cliente: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    nome: { type: 'string' },
+                    endereco: { type: 'string' },
+                    telefone: { type: 'string' },
+                  },
+                },
+                photos: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      url: { type: 'string' },
+                      tipo: { type: 'string', enum: ['ANTES', 'DEPOIS'] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao buscar ordens de serviço' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   try {
     const serviceOrders = await prisma.serviceOrder.findMany({
       include: {
@@ -82,7 +221,7 @@ app.get('/orders', { preHandler: authMiddleware }, async (request, reply) => {
       serviceOrders,
     });
   } catch (error) {
-    app.log.error(error);
+    fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao buscar ordens de serviço',
@@ -91,7 +230,91 @@ app.get('/orders', { preHandler: authMiddleware }, async (request, reply) => {
 });
 
 // POST /orders - For Admin to create a new Service Order linked to a technician and client
-app.post('/orders', async (request, reply) => {
+fastifyInstance.post('/orders', {
+  schema: {
+    tags: ['Orders'],
+    summary: 'Criar nova ordem de serviço',
+    description: 'Cria uma nova ordem de serviço. Apenas administradores podem criar ordens.',
+    security: [{ bearerAuth: [] }],
+    body: {
+      type: 'object',
+      required: ['tecnicoId', 'clienteId', 'dataAgendada'],
+      properties: {
+        tecnicoId: { type: 'string', format: 'uuid', description: 'ID do técnico responsável' },
+        clienteId: { type: 'string', format: 'uuid', description: 'ID do cliente' },
+        dataAgendada: { type: 'string', format: 'date-time', description: 'Data agendada para o serviço', example: '2024-12-01T10:00:00.000Z' },
+      },
+    },
+    response: {
+      201: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Ordem de serviço criada com sucesso' },
+          serviceOrder: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              dataAgendada: { type: 'string', format: 'date-time' },
+              status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'] },
+              tecnico: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  nome: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                },
+              },
+              cliente: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  nome: { type: 'string' },
+                  endereco: { type: 'string' },
+                  telefone: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'tecnicoId, clienteId e dataAgendada são obrigatórios' },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+        },
+      },
+      403: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Forbidden' },
+          message: { type: 'string', example: 'Apenas administradores podem criar ordens de serviço' },
+        },
+      },
+      404: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+          message: { type: 'string', example: 'Técnico não encontrado' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao criar ordem de serviço' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   // Verify authentication
   const user = verifyToken(request);
   if (!user) {
@@ -176,7 +399,7 @@ app.post('/orders', async (request, reply) => {
       serviceOrder,
     });
   } catch (error) {
-    app.log.error(error);
+    fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao criar ordem de serviço',
@@ -185,7 +408,89 @@ app.post('/orders', async (request, reply) => {
 });
 
 // GET /orders/tech/:id - List Service Orders for a specific technician
-app.get('/orders/tech/:id', async (request, reply) => {
+fastifyInstance.get('/orders/tech/:id', {
+  schema: {
+    tags: ['Orders'],
+    summary: 'Listar ordens de serviço por técnico',
+    description: 'Retorna todas as ordens de serviço de um técnico específico',
+    security: [{ bearerAuth: [] }],
+    params: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string', format: 'uuid', description: 'ID do técnico' },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          tecnico: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              nome: { type: 'string' },
+            },
+          },
+          serviceOrders: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                dataAgendada: { type: 'string', format: 'date-time' },
+                status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'] },
+                dataInicio: { type: 'string', format: 'date-time', nullable: true },
+                dataFim: { type: 'string', format: 'date-time', nullable: true },
+                cliente: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    nome: { type: 'string' },
+                    endereco: { type: 'string' },
+                    telefone: { type: 'string' },
+                  },
+                },
+                photos: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      url: { type: 'string' },
+                      tipo: { type: 'string', enum: ['ANTES', 'DEPOIS'] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+        },
+      },
+      404: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+          message: { type: 'string', example: 'Técnico não encontrado' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao buscar ordens de serviço' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   // Verify authentication
   const user = verifyToken(request);
   if (!user) {
@@ -230,7 +535,7 @@ app.get('/orders/tech/:id', async (request, reply) => {
       serviceOrders,
     });
   } catch (error) {
-    app.log.error(error);
+    fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao buscar ordens de serviço',
@@ -239,7 +544,107 @@ app.get('/orders/tech/:id', async (request, reply) => {
 });
 
 // PATCH /orders/:id/status - Update the status and save current timestamp
-app.patch('/orders/:id/status', async (request, reply) => {
+fastifyInstance.patch('/orders/:id/status', {
+  schema: {
+    tags: ['Orders'],
+    summary: 'Atualizar status da ordem de serviço',
+    description: 'Atualiza o status de uma ordem de serviço. Automaticamente define dataInicio quando muda para EM_ANDAMENTO e dataFim quando muda para CONCLUIDO.',
+    security: [{ bearerAuth: [] }],
+    params: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string', format: 'uuid', description: 'ID da ordem de serviço' },
+      },
+    },
+    body: {
+      type: 'object',
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'],
+          description: 'Novo status da ordem de serviço',
+          example: 'EM_ANDAMENTO',
+        },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Status atualizado com sucesso' },
+          serviceOrder: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              dataAgendada: { type: 'string', format: 'date-time' },
+              status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'] },
+              dataInicio: { type: 'string', format: 'date-time', nullable: true },
+              dataFim: { type: 'string', format: 'date-time', nullable: true },
+              tecnico: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  nome: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                },
+              },
+              cliente: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  nome: { type: 'string' },
+                  endereco: { type: 'string' },
+                  telefone: { type: 'string' },
+                },
+              },
+              photos: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    url: { type: 'string' },
+                    tipo: { type: 'string', enum: ['ANTES', 'DEPOIS'] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Status é obrigatório' },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+        },
+      },
+      404: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+          message: { type: 'string', example: 'Ordem de serviço não encontrada' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao atualizar status da ordem de serviço' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   // Verify authentication
   const user = verifyToken(request);
   if (!user) {
@@ -317,7 +722,7 @@ app.patch('/orders/:id/status', async (request, reply) => {
       serviceOrder,
     });
   } catch (error) {
-    app.log.error(error);
+    fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao atualizar status da ordem de serviço',
@@ -326,7 +731,60 @@ app.patch('/orders/:id/status', async (request, reply) => {
 });
 
 // POST /login route
-app.post('/login', async (request, reply) => {
+fastifyInstance.post('/login', {
+  schema: {
+    tags: ['Auth'],
+    summary: 'Login de usuário',
+    description: 'Autentica um usuário e retorna um token JWT',
+    body: {
+      type: 'object',
+      required: ['email', 'senha'],
+      properties: {
+        email: { type: 'string', format: 'email', description: 'Email do usuário', example: 'admin@example.com' },
+        senha: { type: 'string', description: 'Senha do usuário', example: 'senha123' },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Login realizado com sucesso' },
+          token: { type: 'string', description: 'Token JWT para autenticação' },
+          user: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              nome: { type: 'string' },
+              email: { type: 'string', format: 'email' },
+              tipo: { type: 'string', enum: ['ADMIN', 'TECNICO'] },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Email e senha são obrigatórios' },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Credenciais inválidas' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao processar login' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   const { email, senha } = request.body || {};
 
   // Validate input
@@ -382,13 +840,97 @@ app.post('/login', async (request, reply) => {
       },
     });
   } catch (error) {
-    app.log.error(error);
+    fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao processar login',
     });
   }
 });
+
+  // GET /orders/:id/relatorio - Generate and download Technical Report PDF
+  fastifyInstance.get('/orders/:id/relatorio', {
+    schema: {
+      tags: ['Orders'],
+      summary: 'Gerar relatório técnico em PDF',
+      description: 'Gera e baixa o relatório técnico de uma ordem de serviço em formato PDF',
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'ID da ordem de serviço' },
+        },
+      },
+      response: {
+        200: {
+          type: 'string',
+          format: 'binary',
+          description: 'Arquivo PDF do relatório técnico',
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Unauthorized' },
+            message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Not Found' },
+            message: { type: 'string', example: 'Ordem de serviço não encontrada' },
+          },
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Internal Server Error' },
+            message: { type: 'string', example: 'Erro ao gerar relatório técnico' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    // Verify authentication
+    const user = verifyToken(request);
+    if (!user) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+        message: 'Token de autenticação inválido ou ausente',
+      });
+    }
+
+    const { id } = request.params;
+
+    try {
+      // Generate the PDF report
+      const pdfBuffer = await gerarRelatorio(id, prisma);
+
+      // Set response headers for PDF download
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="relatorio-os-${id}.pdf"`);
+      reply.header('Content-Length', pdfBuffer.length);
+
+      return reply.send(pdfBuffer);
+    } catch (error) {
+      fastifyInstance.log.error(error);
+      
+      if (error.message === 'Ordem de serviço não encontrada') {
+        return reply.status(404).send({
+          error: 'Not Found',
+          message: error.message,
+        });
+      }
+
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Erro ao gerar relatório técnico',
+      });
+    }
+  });
+
+}); // End of routes plugin
 
 /**
  * Gera um lembrete de manutenção preventiva quando uma Ordem de Serviço é concluída.
@@ -441,46 +983,6 @@ async function gerarLembreteManutencao(serviceOrder) {
     throw error;
   }
 }
-
-// GET /orders/:id/relatorio - Generate and download Technical Report PDF
-app.get('/orders/:id/relatorio', async (request, reply) => {
-  // Verify authentication
-  const user = verifyToken(request);
-  if (!user) {
-    return reply.status(401).send({
-      error: 'Unauthorized',
-      message: 'Token de autenticação inválido ou ausente',
-    });
-  }
-
-  const { id } = request.params;
-
-  try {
-    // Generate the PDF report
-    const pdfBuffer = await gerarRelatorio(id, prisma);
-
-    // Set response headers for PDF download
-    reply.header('Content-Type', 'application/pdf');
-    reply.header('Content-Disposition', `attachment; filename="relatorio-os-${id}.pdf"`);
-    reply.header('Content-Length', pdfBuffer.length);
-
-    return reply.send(pdfBuffer);
-  } catch (error) {
-    app.log.error(error);
-    
-    if (error.message === 'Ordem de serviço não encontrada') {
-      return reply.status(404).send({
-        error: 'Not Found',
-        message: error.message,
-      });
-    }
-
-    return reply.status(500).send({
-      error: 'Internal Server Error',
-      message: 'Erro ao gerar relatório técnico',
-    });
-  }
-});
 
 // Graceful shutdown
 const gracefulShutdown = async () => {
