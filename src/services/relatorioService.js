@@ -5,6 +5,29 @@ const http = require('http');
 // Timeout for image fetch requests (in milliseconds)
 const IMAGE_FETCH_TIMEOUT = 10000;
 
+// Maximum length for text fields to prevent excessive content
+const MAX_TEXT_LENGTH = 10000;
+
+/**
+ * Sanitizes text for safe use in PDF generation
+ * Removes control characters and limits length
+ * @param {string} text - The text to sanitize
+ * @returns {string} - Sanitized text
+ */
+function sanitizeText(text) {
+  if (typeof text !== 'string') {
+    return '';
+  }
+  // Remove control characters (except newlines and tabs)
+  // eslint-disable-next-line no-control-regex
+  let sanitized = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  // Limit length
+  if (sanitized.length > MAX_TEXT_LENGTH) {
+    sanitized = sanitized.substring(0, MAX_TEXT_LENGTH) + '...';
+  }
+  return sanitized;
+}
+
 /**
  * Checks if a string is a valid IPv4 address
  * @param {string} ip - The string to check
@@ -18,8 +41,8 @@ function isValidIPv4(ip) {
     // Check that each part is a valid number (0-255)
     if (!/^\d+$/.test(part)) return false;
     const num = parseInt(part, 10);
-    if (num < 0 || num > 255) return false;
-    // Check for leading zeros (which could be used for obfuscation)
+    if (num > 255) return false;
+    // Check for leading zeros (which could be used for obfuscation), except for '0' itself
     if (part.length > 1 && part.startsWith('0')) return false;
   }
   return true;
@@ -223,11 +246,11 @@ async function gerarRelatorio(orderId, prisma) {
   yPosition += 25;
   
   doc.fontSize(10);
-  doc.text(`Nome: ${serviceOrder.cliente.nome}`, 50, yPosition);
+  doc.text(`Nome: ${sanitizeText(serviceOrder.cliente.nome)}`, 50, yPosition);
   yPosition += 15;
-  doc.text(`Endereço: ${serviceOrder.cliente.endereco}`, 50, yPosition);
+  doc.text(`Endereço: ${sanitizeText(serviceOrder.cliente.endereco)}`, 50, yPosition);
   yPosition += 15;
-  doc.text(`Telefone: ${serviceOrder.cliente.telefone}`, 50, yPosition);
+  doc.text(`Telefone: ${sanitizeText(serviceOrder.cliente.telefone)}`, 50, yPosition);
   yPosition += 15;
   doc.text(`Coordenadas: ${serviceOrder.cliente.latitude}, ${serviceOrder.cliente.longitude}`, 50, yPosition);
   yPosition += 25;
@@ -240,9 +263,9 @@ async function gerarRelatorio(orderId, prisma) {
   yPosition += 25;
   
   doc.fontSize(10);
-  doc.text(`Nome: ${serviceOrder.tecnico.nome}`, 50, yPosition);
+  doc.text(`Nome: ${sanitizeText(serviceOrder.tecnico.nome)}`, 50, yPosition);
   yPosition += 15;
-  doc.text(`Email: ${serviceOrder.tecnico.email}`, 50, yPosition);
+  doc.text(`Email: ${sanitizeText(serviceOrder.tecnico.email)}`, 50, yPosition);
   yPosition += 25;
 
   // Service Description Section
@@ -253,7 +276,7 @@ async function gerarRelatorio(orderId, prisma) {
   yPosition += 25;
   
   doc.fontSize(10);
-  const relatorioText = serviceOrder.relatorioTecnico || 'Nenhum relatório técnico registrado.';
+  const relatorioText = sanitizeText(serviceOrder.relatorioTecnico) || 'Nenhum relatório técnico registrado.';
   doc.text(relatorioText, 50, yPosition, {
     width: 495,
     align: 'justify',

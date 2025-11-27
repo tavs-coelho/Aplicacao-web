@@ -476,5 +476,5 @@ start();
 // Exporta componentes para uso em outros módulos ou testes
 // NOTA: Esta exportação é usada apenas para testes e não afeta a funcionalidade do servidor
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { gerarLembreteManutencao, gerarRelatorio, app, prisma };
+  module.exports = { gerarLembreteManutencao, app, prisma };
 }
