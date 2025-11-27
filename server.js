@@ -252,8 +252,16 @@ fastifyInstance.get('/orders', {
   schema: {
     tags: ['Orders'],
     summary: 'Listar todas as ordens de serviço',
-    description: 'Retorna todas as ordens de serviço com informações do técnico, cliente e fotos',
+    description: 'Retorna todas as ordens de serviço com informações do técnico, cliente e fotos. Suporta filtros por busca textual (nome do cliente ou endereço), status e técnico.',
     security: [{ bearerAuth: [] }],
+    querystring: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Busca por nome do cliente ou endereço (case insensitive)', example: 'João' },
+        status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'], description: 'Filtrar por status da ordem de serviço', example: 'PENDENTE' },
+        techId: { type: 'string', format: 'uuid', description: 'Filtrar por ID do técnico responsável' },
+      },
+    },
     response: {
       200: {
         type: 'object',
@@ -320,7 +328,33 @@ fastifyInstance.get('/orders', {
   },
 }, async (request, reply) => {
   try {
+    const { search, status, techId } = request.query;
+
+    // Build the where clause for Prisma
+    const whereClause = {};
+
+    // Filter by status if provided
+    if (status) {
+      whereClause.status = status;
+    }
+
+    // Filter by techId if provided
+    if (techId) {
+      whereClause.tecnicoId = techId;
+    }
+
+    // Search filter: case-insensitive search on client name OR address
+    if (search) {
+      whereClause.cliente = {
+        OR: [
+          { nome: { contains: search, mode: 'insensitive' } },
+          { endereco: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
     const serviceOrders = await prisma.serviceOrder.findMany({
+      where: whereClause,
       include: {
         tecnico: {
           select: {
