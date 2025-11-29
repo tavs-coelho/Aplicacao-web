@@ -1,8 +1,7 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
-import { useState, useCallback } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
@@ -168,9 +167,7 @@ function Sidebar({ activeView, onViewChange }) {
 }
 
 // Service Orders Table component with search and filter functionality
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters }) {
-// Service Orders Table component
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -554,9 +551,6 @@ function ClientsTable({ clients }) {
   );
 }
 
-// Extract unique technicians from orders
-const sampleTechnicians = [...new Set(sampleServiceOrders.map(o => o.tecnico))];
-
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -592,7 +586,11 @@ function Dashboard() {
   // Remove toast from the list
   const handleRemoveToast = useCallback((toastId) => {
     setToasts(prev => prev.filter(t => t.id !== toastId));
+  }, []);
+
   const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
   // Filter orders based on current filters (client-side filtering for sample data)
   const filteredOrders = orders.filter((order) => {
@@ -624,8 +622,6 @@ function Dashboard() {
     // In a real application, this would call the API with the new filters:
     // fetchOrders(newFilters);
   };
-  const [isLoading, setIsLoading] = useState(true);
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
   // Simulate initial data loading
   useEffect(() => {
@@ -705,70 +701,6 @@ function Dashboard() {
           <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">📋</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Total de Ordens</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-full">
-                <span className="text-2xl">✅</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Concluídas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Pendentes</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'PENDENTE').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">🔄</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Technician Performance Chart */}
-        <div className="mb-8">
-          <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
-        </div>
-
-        {/* Service Orders Table */}
-        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
-
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
@@ -837,9 +769,6 @@ function Dashboard() {
               technicians={sampleTechnicians}
               onFilterChange={handleFilterChange}
               filters={filters}
-              orders={orders} 
-              onFinalizeOrder={handleFinalizeOrder} 
-              onExport={handleExportOrders}
               onNewOrder={handleNewOrder}
               isLoading={isLoading}
             />
@@ -855,9 +784,6 @@ function Dashboard() {
             technicians={sampleTechnicians}
             onFilterChange={handleFilterChange}
             filters={filters}
-            orders={orders} 
-            onFinalizeOrder={handleFinalizeOrder} 
-            onExport={handleExportOrders}
             onNewOrder={handleNewOrder}
             isLoading={isLoading}
           />

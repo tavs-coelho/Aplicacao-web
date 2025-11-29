@@ -1108,6 +1108,209 @@ fastifyInstance.patch('/orders/:id/rating', {
   }
 });
 
+// In-memory store for password reset tokens (MVP only - use a database in production)
+// Map of token -> { email, expiresAt }
+const passwordResetTokens = new Map();
+
+// POST /forgot-password route - MVP: returns token in response instead of sending email
+fastifyInstance.post('/forgot-password', {
+  schema: {
+    tags: ['Auth'],
+    summary: 'Solicitar reset de senha',
+    description: 'Solicita um token de reset de senha. MVP: retorna o token diretamente na resposta para testes.',
+    body: {
+      type: 'object',
+      required: ['email'],
+      properties: {
+        email: { type: 'string', format: 'email', description: 'Email do usuário', example: 'admin@example.com' },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Token de reset gerado com sucesso' },
+          resetToken: { type: 'string', description: 'Token para reset de senha (MVP only)' },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Email é obrigatório' },
+        },
+      },
+      404: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+          message: { type: 'string', example: 'Usuário não encontrado' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao processar solicitação' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
+  const { email } = request.body || {};
+
+  // Validate input
+  if (!email) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Email é obrigatório',
+    });
+  }
+
+  try {
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return reply.status(404).send({
+        error: 'Not Found',
+        message: 'Usuário não encontrado',
+      });
+    }
+
+    // Generate a secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Token expires in 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Store the token (in production, store in database)
+    passwordResetTokens.set(resetToken, {
+      email: user.email,
+      expiresAt,
+    });
+
+    // MVP: Return token directly in response (in production, send via email)
+    return reply.send({
+      message: 'Token de reset gerado com sucesso',
+      resetToken,
+    });
+  } catch (error) {
+    fastifyInstance.log.error(error);
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao processar solicitação',
+    });
+  }
+});
+
+// POST /reset-password route - Reset password using token
+fastifyInstance.post('/reset-password', {
+  schema: {
+    tags: ['Auth'],
+    summary: 'Redefinir senha',
+    description: 'Redefine a senha do usuário usando o token de reset.',
+    body: {
+      type: 'object',
+      required: ['token', 'novaSenha'],
+      properties: {
+        token: { type: 'string', description: 'Token de reset de senha' },
+        novaSenha: { type: 'string', description: 'Nova senha do usuário', minLength: 6 },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Senha redefinida com sucesso' },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Token e nova senha são obrigatórios' },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Token inválido ou expirado' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao redefinir senha' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
+  const { token, novaSenha } = request.body || {};
+
+  // Validate input
+  if (!token || !novaSenha) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Token e nova senha são obrigatórios',
+    });
+  }
+
+  // Validate password length
+  if (novaSenha.length < 6) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'A nova senha deve ter pelo menos 6 caracteres',
+    });
+  }
+
+  try {
+    // Get token data from store
+    const tokenData = passwordResetTokens.get(token);
+
+    if (!tokenData) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+        message: 'Token inválido ou expirado',
+      });
+    }
+
+    // Check if token has expired
+    if (new Date() > tokenData.expiresAt) {
+      passwordResetTokens.delete(token);
+      return reply.status(401).send({
+        error: 'Unauthorized',
+        message: 'Token inválido ou expirado',
+      });
+    }
+
+    // Update user password
+    // WARNING: In production, hash the password using bcrypt
+    await prisma.user.update({
+      where: { email: tokenData.email },
+      data: { senha: novaSenha },
+    });
+
+    // Remove used token
+    passwordResetTokens.delete(token);
+
+    return reply.send({
+      message: 'Senha redefinida com sucesso',
+    });
+  } catch (error) {
+    fastifyInstance.log.error(error);
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao redefinir senha',
+    });
+  }
+});
+
 // POST /login route
 fastifyInstance.post('/login', {
   schema: {
