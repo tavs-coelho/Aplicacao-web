@@ -1,23 +1,23 @@
 const { PrismaClient } = require('@prisma/client');
 
-// Singleton Prisma client instance for the audit log service
+// Instância singleton do Prisma client para o serviço de log de auditoria
 let prismaInstance = null;
 
 /**
- * Sets the Prisma client instance for the audit log service.
- * This allows dependency injection for testing and shared client usage.
+ * Define a instância do Prisma client para o serviço de log de auditoria.
+ * Permite injeção de dependência para testes e uso compartilhado do client.
  * 
- * @param {PrismaClient} prisma - The Prisma client instance
+ * @param {PrismaClient} prisma - A instância do Prisma client
  */
 function setPrismaInstance(prisma) {
   prismaInstance = prisma;
 }
 
 /**
- * Gets the Prisma client instance.
- * Creates a new instance if not already set.
+ * Obtém a instância do Prisma client.
+ * Cria uma nova instância se ainda não estiver definida.
  * 
- * @returns {PrismaClient} - The Prisma client instance
+ * @returns {PrismaClient} - A instância do Prisma client
  */
 function getPrismaInstance() {
   if (!prismaInstance) {
@@ -32,7 +32,7 @@ function getPrismaInstance() {
  * @param {string} userId - ID do usuário que realizou a ação
  * @param {string} action - Tipo da ação (ex: 'DELETE_ORDER', 'LOGIN')
  * @param {Object} details - Detalhes da ação (dados antigos/novos)
- * @param {Object} [tx] - Optional transaction client to use for the operation
+ * @param {Object} [tx] - Cliente de transação opcional para operações atômicas
  * @returns {Promise<Object>} - O registro de auditoria criado
  */
 async function logAction(userId, action, details, tx = null) {
