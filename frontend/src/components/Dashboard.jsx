@@ -14,6 +14,7 @@ import useSocket from '../hooks/useSocket';
 import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
+import MyAccount from './MyAccount';
 
 const sampleServiceOrders = [
   {
@@ -117,13 +118,14 @@ function StatusBadge({ status }) {
 }
 
 // Sidebar component
-function Sidebar({ activeView, onViewChange }) {
+function Sidebar({ activeView, onViewChange, currentUser }) {
   const menuItems = [
     { name: 'Dashboard', key: 'dashboard', icon: '📊' },
     { name: 'Ordens de Serviço', key: 'orders', icon: '📋' },
     { name: 'Clientes', key: 'clients', icon: '👥' },
     { name: 'Técnicos', key: 'technicians', icon: '🔧' },
     { name: 'Relatórios', key: 'reports', icon: '📈' },
+    { name: 'Minha Conta', key: 'myaccount', icon: '👤' },
     { name: 'Configurações', key: 'settings', icon: '⚙️' },
   ];
 
@@ -154,21 +156,26 @@ function Sidebar({ activeView, onViewChange }) {
         </ul>
       </nav>
       <div className="p-4 border-t border-gray-700">
-        <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => onViewChange('myaccount')}
+          className="flex items-center w-full hover:bg-gray-700 rounded-lg p-2 transition-colors"
+        >
           <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
             <span className="text-sm">👤</span>
           </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">Admin</p>
-            <p className="text-xs text-gray-400">admin@example.com</p>
+          <div className="ml-3 text-left">
+            <p className="text-sm font-medium">{currentUser?.nome || 'Admin'}</p>
+            <p className="text-xs text-gray-400">{currentUser?.email || 'admin@example.com'}</p>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );
 }
 
 // Service Orders Table component with search and filter functionality
+// Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -497,6 +504,14 @@ function Dashboard() {
   // Fetch dashboard metrics from API
   // Note: In production, pass a real auth token from context/state
   const { metrics, loading: metricsLoading } = useDashboardMetrics(null);
+  
+  // Current user state (would typically come from auth context)
+  const [currentUser, setCurrentUser] = useState({
+    id: 'user-1',
+    nome: 'Admin',
+    email: 'admin@example.com',
+    tipo: 'ADMIN',
+  });
 
   // Handle order completed events from Socket.IO
   const handleOrderCompleted = useCallback((data) => {
@@ -575,6 +590,11 @@ function Dashboard() {
     setOrders(prev => [...prev, newOrder]);
   };
 
+  // Handle user profile update from MyAccount component
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(prev => ({ ...prev, ...updatedUser }));
+  };
+
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
@@ -587,6 +607,8 @@ function Dashboard() {
         return { title: 'Técnicos', subtitle: 'Gerencie os técnicos' };
       case 'reports':
         return { title: 'Relatórios', subtitle: 'Visualize os relatórios do sistema' };
+      case 'myaccount':
+        return { title: 'Minha Conta', subtitle: 'Gerencie suas informações pessoais' };
       case 'settings':
         return { title: 'Configurações', subtitle: 'Configure o sistema' };
       default:
@@ -599,76 +621,12 @@ function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Toaster position="top-right" />
-      <Sidebar activeView={activeView} onViewChange={handleViewChange} />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} currentUser={currentUser} />
       <main className="flex-1 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
           <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
-
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">📋</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Total de Ordens</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-full">
-                <span className="text-2xl">✅</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Concluídas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Pendentes</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'PENDENTE').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">🔄</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Technician Performance Chart */}
-        <div className="mb-8">
-          <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
-        </div>
-
-        {/* Service Orders Table */}
-        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
 
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
@@ -758,6 +716,11 @@ function Dashboard() {
         {/* Clients View */}
         {activeView === 'clients' && (
           <ClientsTable clients={sampleClients} />
+        )}
+
+        {/* My Account View */}
+        {activeView === 'myaccount' && (
+          <MyAccount currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         )}
 
         {/* Placeholder views for other sections */}
