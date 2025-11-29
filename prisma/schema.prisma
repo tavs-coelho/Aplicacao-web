@@ -69,6 +69,7 @@ model ServiceOrder {
   status           ServiceOrderStatus @default(PENDENTE)
   dataInicio       DateTime?
   dataFim          DateTime?
+  valor            Float?             // Valor do serviço em reais
   relatorioTecnico String?
   rating           Int?               // Avaliação do cliente (1 a 5)
   feedback         String?            // Comentário opcional do cliente

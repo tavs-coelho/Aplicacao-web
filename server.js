@@ -65,6 +65,7 @@ app.register(swagger, {
     },
     tags: [
       { name: 'Auth', description: 'Autenticação de usuários' },
+      { name: 'Dashboard', description: 'Métricas e estatísticas do dashboard' },
       { name: 'Orders', description: 'Gerenciamento de ordens de serviço' },
       { name: 'Health', description: 'Verificação de saúde da API' },
     ],
@@ -1304,6 +1305,110 @@ fastifyInstance.post('/login', {
       return reply.status(500).send({
         error: 'Internal Server Error',
         message: 'Erro ao gerar relatório técnico',
+      });
+    }
+  });
+
+  // GET /dashboard/metrics - Obter métricas do dashboard
+  fastifyInstance.get('/dashboard/metrics', {
+    preHandler: authMiddleware,
+    schema: {
+      tags: ['Dashboard'],
+      summary: 'Obter métricas do dashboard',
+      description: 'Retorna métricas agregadas para o dashboard: faturamento do mês, OS pendentes e tempo médio de atendimento',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            total_faturamento_mes: { type: 'number', description: 'Soma do valor de todas as OS concluídas neste mês', example: 15000.50 },
+            os_pendentes: { type: 'integer', description: 'Contagem de OS com status PENDENTE', example: 5 },
+            tempo_medio_atendimento: { type: 'number', nullable: true, description: 'Média em minutos da diferença entre dataFim e dataInicio das OS concluídas', example: 120.5 },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Unauthorized' },
+            message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+          },
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Internal Server Error' },
+            message: { type: 'string', example: 'Erro ao buscar métricas do dashboard' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      // Get the first and last day of the current month
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      // 1. Total faturamento do mês - Soma do valor de todas as OS concluídas neste mês
+      const faturamentoResult = await prisma.serviceOrder.aggregate({
+        _sum: {
+          valor: true,
+        },
+        where: {
+          status: 'CONCLUIDO',
+          dataFim: {
+            gte: firstDayOfMonth,
+            lte: lastDayOfMonth,
+          },
+        },
+      });
+
+      const total_faturamento_mes = faturamentoResult._sum.valor || 0;
+
+      // 2. OS pendentes - Contagem de OS com status PENDENTE
+      const os_pendentes = await prisma.serviceOrder.count({
+        where: {
+          status: 'PENDENTE',
+        },
+      });
+
+      // 3. Tempo médio de atendimento - Média da diferença entre dataFim e dataInicio das OS concluídas
+      // We need to fetch completed orders with both dataInicio and dataFim
+      const completedOrders = await prisma.serviceOrder.findMany({
+        where: {
+          status: 'CONCLUIDO',
+          dataInicio: { not: null },
+          dataFim: { not: null },
+        },
+        select: {
+          dataInicio: true,
+          dataFim: true,
+        },
+      });
+
+      let tempo_medio_atendimento = null;
+
+      if (completedOrders.length > 0) {
+        // Calculate average time in minutes
+        const totalMinutes = completedOrders.reduce((acc, order) => {
+          const diffMs = new Date(order.dataFim).getTime() - new Date(order.dataInicio).getTime();
+          const diffMinutes = diffMs / (1000 * 60);
+          return acc + diffMinutes;
+        }, 0);
+
+        tempo_medio_atendimento = totalMinutes / completedOrders.length;
+      }
+
+      return reply.send({
+        total_faturamento_mes,
+        os_pendentes,
+        tempo_medio_atendimento,
+      });
+    } catch (error) {
+      fastifyInstance.log.error(error);
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Erro ao buscar métricas do dashboard',
       });
     }
   });

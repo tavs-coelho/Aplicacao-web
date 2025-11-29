@@ -1,16 +1,17 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
-import { useState, useCallback } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
+import DashboardMetricsCards from './DashboardMetricsCards';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { ToastContainer } from './Toast';
 import useSocket from '../hooks/useSocket';
+import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
 
@@ -168,8 +169,6 @@ function Sidebar({ activeView, onViewChange }) {
 }
 
 // Service Orders Table component with search and filter functionality
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters }) {
-// Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -212,74 +211,6 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
             <span className="mr-2">📥</span>
             Exportar Relatório
           </button>
-        </div>
-      </div>
-      
-      {/* Search and Filter Bar */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <div className="flex flex-wrap gap-4 items-center">
-          {/* Search Input */}
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="search" className="sr-only">Buscar</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                🔍
-              </span>
-              <input
-                id="search"
-                type="text"
-                placeholder="Buscar por cliente ou endereço..."
-                value={filters.search}
-                onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              />
-            </div>
-          </div>
-          
-          {/* Status Filter */}
-          <div className="min-w-[150px]">
-            <label htmlFor="status-filter" className="sr-only">Status</label>
-            <select
-              id="status-filter"
-              value={filters.status}
-              onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            >
-              <option value="">Todos os Status</option>
-              <option value="PENDENTE">Pendente</option>
-              <option value="EM_ANDAMENTO">Em Andamento</option>
-              <option value="CONCLUIDO">Concluído</option>
-            </select>
-          </div>
-          
-          {/* Technician Filter */}
-          <div className="min-w-[180px]">
-            <label htmlFor="tech-filter" className="sr-only">Técnico</label>
-            <select
-              id="tech-filter"
-              value={filters.techId}
-              onChange={(e) => onFilterChange({ ...filters, techId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            >
-              <option value="">Todos os Técnicos</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Clear Filters Button */}
-          {(filters.search || filters.status || filters.techId) && (
-            <button
-              type="button"
-              onClick={() => onFilterChange({ search: '', status: '', techId: '' })}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Limpar filtros
-            </button>
-          )}
         </div>
       </div>
 
@@ -554,15 +485,18 @@ function ClientsTable({ clients }) {
   );
 }
 
-// Extract unique technicians from orders
-const sampleTechnicians = [...new Set(sampleServiceOrders.map(o => o.tecnico))];
-
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Fetch dashboard metrics from API
+  // Note: In production, pass a real auth token from context/state
+  const { metrics, loading: metricsLoading } = useDashboardMetrics(null);
 
   // Handle order completed events from Socket.IO
   const handleOrderCompleted = useCallback((data) => {
@@ -592,40 +526,7 @@ function Dashboard() {
   // Remove toast from the list
   const handleRemoveToast = useCallback((toastId) => {
     setToasts(prev => prev.filter(t => t.id !== toastId));
-  const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
-
-  // Filter orders based on current filters (client-side filtering for sample data)
-  const filteredOrders = orders.filter((order) => {
-    // Search filter (client name or address)
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const clientMatch = order.cliente?.toLowerCase().includes(searchLower);
-      const addressMatch = order.clienteEndereco?.toLowerCase().includes(searchLower);
-      if (!clientMatch && !addressMatch) {
-        return false;
-      }
-    }
-    
-    // Status filter
-    if (filters.status && order.status !== filters.status) {
-      return false;
-    }
-    
-    // Technician filter
-    if (filters.techId && order.tecnicoId !== filters.techId) {
-      return false;
-    }
-    
-    return true;
-  });
-
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
-    // In a real application, this would call the API with the new filters:
-    // fetchOrders(newFilters);
-  };
-  const [isLoading, setIsLoading] = useState(true);
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  }, []);
 
   // Simulate initial data loading
   useEffect(() => {
@@ -644,7 +545,7 @@ function Dashboard() {
   };
 
   const handleExportOrders = () => {
-    exportOrdersToCSV(filteredOrders);
+    exportOrdersToCSV(orders);
   };
 
   const handleSubmitFinalization = (order, photos) => {
@@ -772,6 +673,9 @@ function Dashboard() {
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
+            {/* Dashboard Metrics Cards - Large cards for key metrics from API */}
+            <DashboardMetricsCards metrics={metrics} loading={metricsLoading} />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
@@ -831,12 +735,6 @@ function Dashboard() {
               <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
             </div>
             <ServiceOrdersTable 
-              orders={filteredOrders} 
-              onFinalizeOrder={handleFinalizeOrder} 
-              onExport={handleExportOrders}
-              technicians={sampleTechnicians}
-              onFilterChange={handleFilterChange}
-              filters={filters}
               orders={orders} 
               onFinalizeOrder={handleFinalizeOrder} 
               onExport={handleExportOrders}
@@ -849,12 +747,6 @@ function Dashboard() {
         {/* Orders View */}
         {activeView === 'orders' && (
           <ServiceOrdersTable 
-            orders={filteredOrders} 
-            onFinalizeOrder={handleFinalizeOrder} 
-            onExport={handleExportOrders}
-            technicians={sampleTechnicians}
-            onFilterChange={handleFilterChange}
-            filters={filters}
             orders={orders} 
             onFinalizeOrder={handleFinalizeOrder} 
             onExport={handleExportOrders}
