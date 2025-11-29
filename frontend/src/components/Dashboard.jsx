@@ -1,6 +1,7 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
+import { useState, useCallback } from 'react';
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
@@ -8,6 +9,8 @@ import TechnicianPerformanceChart from './TechnicianPerformanceChart';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
+import { ToastContainer } from './Toast';
+import useSocket from '../hooks/useSocket';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
 
@@ -559,6 +562,36 @@ function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
+  const [toasts, setToasts] = useState([]);
+
+  // Handle order completed events from Socket.IO
+  const handleOrderCompleted = useCallback((data) => {
+    const { tecnicoNome, clienteNome, orderId } = data;
+    
+    // Add a new toast notification
+    const newToast = {
+      id: Date.now(),
+      message: `O técnico ${tecnicoNome} acabou de finalizar a OS no cliente ${clienteNome}`,
+      type: 'success',
+      duration: 7000,
+    };
+    
+    setToasts(prev => [...prev, newToast]);
+    
+    // Update the order in the list if it exists
+    setOrders(prev => 
+      prev.map(o => 
+        o.id === orderId ? { ...o, status: 'CONCLUIDO' } : o
+      )
+    );
+  }, []);
+
+  // Initialize Socket.IO connection
+  useSocket(handleOrderCompleted);
+
+  // Remove toast from the list
+  const handleRemoveToast = useCallback((toastId) => {
+    setToasts(prev => prev.filter(t => t.id !== toastId));
   const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
 
   // Filter orders based on current filters (client-side filtering for sample data)
@@ -672,6 +705,70 @@ function Dashboard() {
           <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
 
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <span className="text-2xl">📋</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Total de Ordens</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-full">
+                <span className="text-2xl">✅</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Concluídas</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-yellow-100 rounded-full">
+                <span className="text-2xl">⏳</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Pendentes</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.filter((o) => o.status === 'PENDENTE').length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <span className="text-2xl">🔄</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Em Andamento</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Technician Performance Chart */}
+        <div className="mb-8">
+          <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
+        </div>
+
+        {/* Service Orders Table */}
+        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
+
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
@@ -778,6 +875,9 @@ function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* Toast notifications for real-time updates */}
+      <ToastContainer toasts={toasts} onRemoveToast={handleRemoveToast} />
 
       {/* Finalize Order Modal */}
       {selectedOrder && (

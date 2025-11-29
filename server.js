@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { Server } = require('socket.io');
 const { gerarRelatorio } = require('./src/services/relatorioService');
 const { authMiddleware } = require('./src/middleware/authMiddleware');
 
@@ -88,6 +89,9 @@ app.register(cors, {
   credentials: true,
 });
 
+// Socket.IO instance - will be initialized after server starts
+let io = null;
+
 // Register rate limiting plugin
 // Limits requests per IP to prevent abuse
 app.register(rateLimit, {
@@ -127,8 +131,6 @@ const verifyToken = (request) => {
   }
 };
 
-// Health check route
-app.get('/health', async (request, reply) => {
 // Register routes plugin to ensure routes are collected by Swagger
 app.register(async function routes(fastifyInstance) {
   // Helper function to verify JWT token and extract user info
@@ -885,6 +887,12 @@ fastifyInstance.patch('/orders/:id/status', {
   }
 });
 
+// PATCH /orders/:id/complete - Complete a service order and emit real-time notification
+fastifyInstance.patch('/orders/:id/complete', {
+  schema: {
+    tags: ['Orders'],
+    summary: 'Finalizar ordem de serviço',
+    description: 'Marca uma ordem de serviço como concluída e emite notificação em tempo real para o painel administrativo',
 // PATCH /orders/:id/rating - Update rating and feedback for a service order
 fastifyInstance.patch('/orders/:id/rating', {
   schema: {
@@ -921,11 +929,37 @@ fastifyInstance.patch('/orders/:id/rating', {
       200: {
         type: 'object',
         properties: {
+          message: { type: 'string', example: 'Ordem de serviço finalizada com sucesso' },
           message: { type: 'string', example: 'Avaliação salva com sucesso' },
           serviceOrder: {
             type: 'object',
             properties: {
               id: { type: 'string', format: 'uuid' },
+              dataAgendada: { type: 'string', format: 'date-time' },
+              status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'] },
+              dataInicio: { type: 'string', format: 'date-time', nullable: true },
+              dataFim: { type: 'string', format: 'date-time', nullable: true },
+              tecnico: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  nome: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                },
+              },
+              cliente: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  nome: { type: 'string' },
+                  endereco: { type: 'string' },
+                  telefone: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
               rating: { type: 'integer', nullable: true },
               feedback: { type: 'string', nullable: true },
             },
@@ -957,6 +991,7 @@ fastifyInstance.patch('/orders/:id/rating', {
         type: 'object',
         properties: {
           error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao finalizar ordem de serviço' },
           message: { type: 'string', example: 'Erro ao salvar avaliação' },
         },
       },
@@ -1003,6 +1038,48 @@ fastifyInstance.patch('/orders/:id/rating', {
       });
     }
 
+    // Update the service order to CONCLUIDO
+    const now = new Date();
+    const updateData = {
+      status: 'CONCLUIDO',
+      dataFim: existingOrder.dataFim || now,
+    };
+
+    // If dataInicio is not set, set it as well
+    if (!existingOrder.dataInicio) {
+      updateData.dataInicio = now;
+    }
+
+    const serviceOrder = await prisma.serviceOrder.update({
+      where: { id },
+      data: updateData,
+      include: {
+        tecnico: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+          },
+        },
+        cliente: true,
+        photos: true,
+      },
+    });
+
+    // Emit real-time notification via Socket.IO
+    if (io) {
+      io.emit('order_completed', {
+        orderId: serviceOrder.id,
+        tecnicoNome: serviceOrder.tecnico.nome,
+        clienteNome: serviceOrder.cliente.nome,
+        dataFim: serviceOrder.dataFim,
+        serviceOrder,
+      });
+      fastifyInstance.log.info(`Emitted order_completed event for order ${serviceOrder.id}`);
+    }
+
+    return reply.send({
+      message: 'Ordem de serviço finalizada com sucesso',
     // Update the service order with rating and feedback
     const serviceOrder = await prisma.serviceOrder.update({
       where: { id },
@@ -1025,6 +1102,7 @@ fastifyInstance.patch('/orders/:id/rating', {
     fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
+      message: 'Erro ao finalizar ordem de serviço',
       message: 'Erro ao salvar avaliação',
     });
   }
@@ -1299,7 +1377,27 @@ const start = async () => {
     const port = process.env.PORT || 3000;
     const host = process.env.HOST || '0.0.0.0';
     await app.listen({ port: Number(port), host });
+    
+    // Initialize Socket.IO after Fastify server starts
+    io = new Server(app.server, {
+      cors: {
+        origin: process.env.CORS_ORIGIN || '*',
+        methods: ['GET', 'POST'],
+        credentials: true,
+      },
+    });
+    
+    // Socket.IO connection handling
+    io.on('connection', (socket) => {
+      app.log.info(`Socket.IO client connected: ${socket.id}`);
+      
+      socket.on('disconnect', () => {
+        app.log.info(`Socket.IO client disconnected: ${socket.id}`);
+      });
+    });
+    
     app.log.info(`Server running at http://${host}:${port}`);
+    app.log.info('Socket.IO server initialized');
   } catch (err) {
     app.log.error(err);
     await prisma.$disconnect();
@@ -1312,5 +1410,5 @@ start();
 // Exporta componentes para uso em outros módulos ou testes
 // NOTA: Esta exportação é usada apenas para testes e não afeta a funcionalidade do servidor
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { gerarLembreteManutencao, app, prisma };
+  module.exports = { gerarLembreteManutencao, app, prisma, getIo: () => io };
 }
