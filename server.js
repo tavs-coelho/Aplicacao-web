@@ -13,6 +13,7 @@ const path = require('path');
 const { Server } = require('socket.io');
 const { gerarRelatorio } = require('./src/services/relatorioService');
 const { authMiddleware } = require('./src/middleware/authMiddleware');
+const { logAction, setPrismaInstance } = require('./src/services/auditLogService');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -22,6 +23,9 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Initialize Prisma Client
 const prisma = new PrismaClient();
+
+// Set Prisma instance for audit log service
+setPrismaInstance(prisma);
 
 // Initialize Fastify with logging
 // Configure ajvOptions to allow 'example' keyword for Swagger documentation
@@ -1304,6 +1308,130 @@ fastifyInstance.post('/login', {
       return reply.status(500).send({
         error: 'Internal Server Error',
         message: 'Erro ao gerar relatório técnico',
+      });
+    }
+  });
+
+  // DELETE /orders/:id - Delete a service order (Admin only, with audit log)
+  fastifyInstance.delete('/orders/:id', {
+    preHandler: authMiddleware,
+    schema: {
+      tags: ['Orders'],
+      summary: 'Excluir ordem de serviço',
+      description: 'Exclui uma ordem de serviço. Apenas administradores podem excluir ordens. A ação é registrada no log de auditoria.',
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'ID da ordem de serviço' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Ordem de serviço excluída com sucesso' },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Unauthorized' },
+            message: { type: 'string', example: 'Token de autenticação inválido ou ausente' },
+          },
+        },
+        403: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Forbidden' },
+            message: { type: 'string', example: 'Apenas administradores podem excluir ordens de serviço' },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Not Found' },
+            message: { type: 'string', example: 'Ordem de serviço não encontrada' },
+          },
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string', example: 'Internal Server Error' },
+            message: { type: 'string', example: 'Erro ao excluir ordem de serviço' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const user = request.user;
+
+    // Only ADMIN can delete orders
+    if (user.tipo !== 'ADMIN') {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'Apenas administradores podem excluir ordens de serviço',
+      });
+    }
+
+    const { id } = request.params;
+
+    try {
+      // Find the existing service order with related data
+      const existingOrder = await prisma.serviceOrder.findUnique({
+        where: { id },
+        include: {
+          tecnico: {
+            select: {
+              id: true,
+              nome: true,
+              email: true,
+            },
+          },
+          cliente: true,
+          photos: true,
+        },
+      });
+
+      if (!existingOrder) {
+        return reply.status(404).send({
+          error: 'Not Found',
+          message: 'Ordem de serviço não encontrada',
+        });
+      }
+
+      // Delete related maintenance reminders first
+      await prisma.maintenanceReminder.deleteMany({
+        where: { serviceOrderId: id },
+      });
+
+      // Delete the service order (photos are deleted automatically via cascade)
+      await prisma.serviceOrder.delete({
+        where: { id },
+      });
+
+      // Log the deletion action for audit purposes
+      await logAction(user.id, 'DELETE_ORDER', {
+        deletedOrder: existingOrder,
+        deletedAt: new Date().toISOString(),
+        deletedBy: {
+          id: user.id,
+          email: user.email,
+          tipo: user.tipo,
+        },
+      });
+
+      fastifyInstance.log.info(`Ordem de serviço ${id} excluída pelo admin ${user.id}`);
+
+      return reply.send({
+        message: 'Ordem de serviço excluída com sucesso',
+      });
+    } catch (error) {
+      fastifyInstance.log.error(error);
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Erro ao excluir ordem de serviço',
       });
     }
   });

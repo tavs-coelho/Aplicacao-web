@@ -125,3 +125,15 @@ model MaintenanceReminder {
 
   @@map("maintenance_reminders")
 }
+
+// Model: AuditLog (Registro de Auditoria)
+// Registra ações importantes no sistema para fins de segurança e auditoria
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   // ID do usuário que realizou a ação
+  action    String   // Tipo da ação (ex: 'DELETE_ORDER', 'LOGIN')
+  details   Json     // Detalhes da ação (dados antigos/novos em formato JSON)
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
