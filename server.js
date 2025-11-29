@@ -8,6 +8,7 @@ const swaggerUi = require('@fastify/swagger-ui');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -887,12 +888,6 @@ fastifyInstance.patch('/orders/:id/status', {
   }
 });
 
-// PATCH /orders/:id/complete - Complete a service order and emit real-time notification
-fastifyInstance.patch('/orders/:id/complete', {
-  schema: {
-    tags: ['Orders'],
-    summary: 'Finalizar ordem de serviço',
-    description: 'Marca uma ordem de serviço como concluída e emite notificação em tempo real para o painel administrativo',
 // PATCH /orders/:id/rating - Update rating and feedback for a service order
 fastifyInstance.patch('/orders/:id/rating', {
   schema: {
@@ -929,37 +924,11 @@ fastifyInstance.patch('/orders/:id/rating', {
       200: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Ordem de serviço finalizada com sucesso' },
           message: { type: 'string', example: 'Avaliação salva com sucesso' },
           serviceOrder: {
             type: 'object',
             properties: {
               id: { type: 'string', format: 'uuid' },
-              dataAgendada: { type: 'string', format: 'date-time' },
-              status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'] },
-              dataInicio: { type: 'string', format: 'date-time', nullable: true },
-              dataFim: { type: 'string', format: 'date-time', nullable: true },
-              tecnico: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string', format: 'uuid' },
-                  nome: { type: 'string' },
-                  email: { type: 'string', format: 'email' },
-                },
-              },
-              cliente: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string', format: 'uuid' },
-                  nome: { type: 'string' },
-                  endereco: { type: 'string' },
-                  telefone: { type: 'string' },
-                },
-              },
-            },
-          },
-        },
-      },
               rating: { type: 'integer', nullable: true },
               feedback: { type: 'string', nullable: true },
             },
@@ -991,7 +960,6 @@ fastifyInstance.patch('/orders/:id/rating', {
         type: 'object',
         properties: {
           error: { type: 'string', example: 'Internal Server Error' },
-          message: { type: 'string', example: 'Erro ao finalizar ordem de serviço' },
           message: { type: 'string', example: 'Erro ao salvar avaliação' },
         },
       },
@@ -1038,48 +1006,6 @@ fastifyInstance.patch('/orders/:id/rating', {
       });
     }
 
-    // Update the service order to CONCLUIDO
-    const now = new Date();
-    const updateData = {
-      status: 'CONCLUIDO',
-      dataFim: existingOrder.dataFim || now,
-    };
-
-    // If dataInicio is not set, set it as well
-    if (!existingOrder.dataInicio) {
-      updateData.dataInicio = now;
-    }
-
-    const serviceOrder = await prisma.serviceOrder.update({
-      where: { id },
-      data: updateData,
-      include: {
-        tecnico: {
-          select: {
-            id: true,
-            nome: true,
-            email: true,
-          },
-        },
-        cliente: true,
-        photos: true,
-      },
-    });
-
-    // Emit real-time notification via Socket.IO
-    if (io) {
-      io.emit('order_completed', {
-        orderId: serviceOrder.id,
-        tecnicoNome: serviceOrder.tecnico.nome,
-        clienteNome: serviceOrder.cliente.nome,
-        dataFim: serviceOrder.dataFim,
-        serviceOrder,
-      });
-      fastifyInstance.log.info(`Emitted order_completed event for order ${serviceOrder.id}`);
-    }
-
-    return reply.send({
-      message: 'Ordem de serviço finalizada com sucesso',
     // Update the service order with rating and feedback
     const serviceOrder = await prisma.serviceOrder.update({
       where: { id },
@@ -1102,7 +1028,6 @@ fastifyInstance.patch('/orders/:id/rating', {
     fastifyInstance.log.error(error);
     return reply.status(500).send({
       error: 'Internal Server Error',
-      message: 'Erro ao finalizar ordem de serviço',
       message: 'Erro ao salvar avaliação',
     });
   }
@@ -1222,6 +1147,159 @@ fastifyInstance.post('/login', {
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao processar login',
+    });
+  }
+});
+
+// PUT /me - Update current user's name and/or password
+fastifyInstance.put('/me', {
+  preHandler: authMiddleware,
+  schema: {
+    tags: ['Auth'],
+    summary: 'Atualizar dados do usuário logado',
+    description: 'Permite ao usuário logado (Técnico ou Admin) alterar seu nome e/ou senha. Para alterar a senha, é necessário informar a senha atual.',
+    security: [{ bearerAuth: [] }],
+    body: {
+      type: 'object',
+      properties: {
+        nome: { type: 'string', description: 'Novo nome do usuário', example: 'João Silva' },
+        senhaAtual: { type: 'string', description: 'Senha atual (obrigatória para alterar a senha)', example: 'senha123' },
+        novaSenha: { type: 'string', description: 'Nova senha do usuário', example: 'novaSenha456' },
+      },
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Dados atualizados com sucesso' },
+          user: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              nome: { type: 'string' },
+              email: { type: 'string', format: 'email' },
+              tipo: { type: 'string', enum: ['ADMIN', 'TECNICO'] },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Para alterar a senha, informe a senha atual' },
+        },
+      },
+      401: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+          message: { type: 'string', example: 'Senha atual incorreta' },
+        },
+      },
+      404: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+          message: { type: 'string', example: 'Usuário não encontrado' },
+        },
+      },
+      500: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Internal Server Error' },
+          message: { type: 'string', example: 'Erro ao atualizar dados do usuário' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
+  const userId = request.user.id;
+  const { nome, senhaAtual, novaSenha } = request.body || {};
+
+  // Check if there's anything to update
+  if (!nome && !novaSenha) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Nenhum dado para atualizar. Informe nome e/ou nova senha.',
+    });
+  }
+
+  try {
+    // Find the current user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return reply.status(404).send({
+        error: 'Not Found',
+        message: 'Usuário não encontrado',
+      });
+    }
+
+    // Prepare update data
+    const updateData = {};
+
+    // Update name if provided
+    if (nome) {
+      updateData.nome = nome;
+    }
+
+    // Handle password change
+    if (novaSenha) {
+      // Require current password to set a new one
+      if (!senhaAtual) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: 'Para alterar a senha, informe a senha atual',
+        });
+      }
+
+      // Verify current password
+      // Check if stored password is hashed (starts with $2) or plain text
+      let isCurrentPasswordValid;
+      if (user.senha.startsWith('$2')) {
+        // Password is hashed, use bcrypt.compare
+        isCurrentPasswordValid = await bcrypt.compare(senhaAtual, user.senha);
+      } else {
+        // Password is plain text (legacy/development mode)
+        isCurrentPasswordValid = user.senha === senhaAtual;
+      }
+
+      if (!isCurrentPasswordValid) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Senha atual incorreta',
+        });
+      }
+
+      // Hash the new password with bcrypt
+      const saltRounds = 10;
+      updateData.senha = await bcrypt.hash(novaSenha, saltRounds);
+    }
+
+    // Update the user
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        tipo: true,
+      },
+    });
+
+    return reply.send({
+      message: 'Dados atualizados com sucesso',
+      user: updatedUser,
+    });
+  } catch (error) {
+    fastifyInstance.log.error(error);
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Erro ao atualizar dados do usuário',
     });
   }
 });
