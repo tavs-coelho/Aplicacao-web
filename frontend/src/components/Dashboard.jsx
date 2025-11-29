@@ -1,12 +1,15 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
+import TableSkeleton from './TableSkeleton';
+import NewOrderModal from './NewOrderModal';
 
 const sampleServiceOrders = [
   {
@@ -163,6 +166,8 @@ function Sidebar({ activeView, onViewChange }) {
 
 // Service Orders Table component with search and filter functionality
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters }) {
+// Service Orders Table component
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -171,6 +176,10 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
       year: 'numeric',
     });
   };
+
+  if (isLoading) {
+    return <TableSkeleton rows={5} columns={5} />;
+  }
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -183,14 +192,24 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
             Lista de todas as ordens de serviço
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onExport}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <span className="mr-2">📥</span>
-          Exportar Relatório
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onNewOrder}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          >
+            <span className="mr-2">➕</span>
+            Nova OS
+          </button>
+          <button
+            type="button"
+            onClick={onExport}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <span className="mr-2">📥</span>
+            Exportar Relatório
+          </button>
+        </div>
       </div>
       
       {/* Search and Filter Bar */}
@@ -532,6 +551,9 @@ function ClientsTable({ clients }) {
   );
 }
 
+// Extract unique technicians from orders
+const sampleTechnicians = [...new Set(sampleServiceOrders.map(o => o.tecnico))];
+
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -569,6 +591,16 @@ function Dashboard() {
     // In a real application, this would call the API with the new filters:
     // fetchOrders(newFilters);
   };
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Simulate initial data loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleFinalizeOrder = (order) => {
     setSelectedOrder(order);
@@ -597,6 +629,18 @@ function Dashboard() {
     setActiveView(view);
   };
 
+  const handleNewOrder = () => {
+    setShowNewOrderModal(true);
+  };
+
+  const handleCloseNewOrderModal = () => {
+    setShowNewOrderModal(false);
+  };
+
+  const handleSubmitNewOrder = (newOrder) => {
+    setOrders(prev => [...prev, newOrder]);
+  };
+
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
@@ -620,6 +664,7 @@ function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
+      <Toaster position="top-right" />
       <Sidebar activeView={activeView} onViewChange={handleViewChange} />
       <main className="flex-1 p-8">
         <div className="mb-8">
@@ -695,6 +740,11 @@ function Dashboard() {
               technicians={sampleTechnicians}
               onFilterChange={handleFilterChange}
               filters={filters}
+              orders={orders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
+              onNewOrder={handleNewOrder}
+              isLoading={isLoading}
             />
           </>
         )}
@@ -708,6 +758,11 @@ function Dashboard() {
             technicians={sampleTechnicians}
             onFilterChange={handleFilterChange}
             filters={filters}
+            orders={orders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
+            onNewOrder={handleNewOrder}
+            isLoading={isLoading}
           />
         )}
 
@@ -730,6 +785,16 @@ function Dashboard() {
           order={selectedOrder}
           onClose={handleCloseModal}
           onSubmit={handleSubmitFinalization}
+        />
+      )}
+
+      {/* New Order Modal */}
+      {showNewOrderModal && (
+        <NewOrderModal
+          onClose={handleCloseNewOrderModal}
+          onSubmit={handleSubmitNewOrder}
+          clients={sampleClients}
+          technicians={sampleTechnicians}
         />
       )}
     </div>

@@ -40,6 +40,8 @@ export interface ServiceOrder {
   dataInicio: string | null;
   dataFim: string | null;
   relatorioTecnico: string | null;
+  rating: number | null;
+  feedback: string | null;
   createdAt: string;
   updatedAt: string;
   tecnicoId: string;
@@ -66,4 +68,5 @@ export interface LoginResponse {
 export type RootStackParamList = {
   MyOrders: undefined;
   OrderDetails: { order: ServiceOrder };
+  Rating: { orderId: string };
 };
