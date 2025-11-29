@@ -1,13 +1,33 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { formatDate, formatTime, getStatusColor, getStatusLabel } from '../utils/formatters';
+import { formatDate, formatTime, getStatusColor, getStatusLabel, openMapsNavigation } from '../utils/formatters';
 
 type OrderDetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'OrderDetails'>;
 
 export function OrderDetailsScreen({ route }: OrderDetailsScreenProps) {
   const { order } = route.params;
+
+  const handleTraceRoute = async () => {
+    const { latitude, longitude, nome } = order.cliente;
+    
+    if (latitude && longitude) {
+      try {
+        await openMapsNavigation(latitude, longitude, nome);
+      } catch (error) {
+        Alert.alert(
+          'Erro',
+          'Não foi possível abrir o aplicativo de mapas. Verifique se você tem um aplicativo de mapas instalado.'
+        );
+      }
+    } else {
+      Alert.alert(
+        'Localização não disponível',
+        'As coordenadas do cliente não estão disponíveis.'
+      );
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -50,6 +70,12 @@ export function OrderDetailsScreen({ route }: OrderDetailsScreenProps) {
             </View>
           </View>
         </View>
+        
+        {/* Traçar Rota Button */}
+        <TouchableOpacity style={styles.routeButton} onPress={handleTraceRoute}>
+          <Text style={styles.routeButtonIcon}>🗺️</Text>
+          <Text style={styles.routeButtonText}>Traçar Rota</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Schedule Info Section */}
@@ -215,5 +241,32 @@ const styles = StyleSheet.create({
   photoType: {
     fontSize: 14,
     color: '#2c3e50',
+  },
+  routeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3498db',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    shadowColor: '#3498db',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  routeButtonIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  routeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
