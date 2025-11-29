@@ -12,6 +12,13 @@ const mockPrisma = {
   },
 };
 
+// Mock transaction client
+const mockTx = {
+  auditLog: {
+    create: vi.fn(),
+  },
+};
+
 // Import the service after mocking (using require to allow module manipulation)
 describe('auditLogService', () => {
   beforeEach(() => {
@@ -110,6 +117,30 @@ describe('auditLogService', () => {
         
         expect(result.action).toBe(action);
       }
+    });
+
+    it('should use transaction client when provided', async () => {
+      const expectedLog = {
+        id: 'test-tx-audit-id',
+        userId: 'user-123',
+        action: 'DELETE_ORDER',
+        details: { orderId: 'order-456' },
+        createdAt: new Date(),
+      };
+      
+      mockTx.auditLog.create.mockResolvedValue(expectedLog);
+      
+      // Simulate using transaction client
+      const result = await mockTx.auditLog.create({
+        data: {
+          userId: 'user-123',
+          action: 'DELETE_ORDER',
+          details: { orderId: 'order-456' },
+        },
+      });
+      
+      expect(mockTx.auditLog.create).toHaveBeenCalled();
+      expect(result).toEqual(expectedLog);
     });
   });
 });

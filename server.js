@@ -1401,25 +1401,28 @@ fastifyInstance.post('/login', {
         });
       }
 
-      // Delete related maintenance reminders first
-      await prisma.maintenanceReminder.deleteMany({
-        where: { serviceOrderId: id },
-      });
+      // Use a transaction to ensure both deletion and audit logging succeed together
+      await prisma.$transaction(async (tx) => {
+        // Delete related maintenance reminders first
+        await tx.maintenanceReminder.deleteMany({
+          where: { serviceOrderId: id },
+        });
 
-      // Delete the service order (photos are deleted automatically via cascade)
-      await prisma.serviceOrder.delete({
-        where: { id },
-      });
+        // Delete the service order (photos are deleted automatically via cascade)
+        await tx.serviceOrder.delete({
+          where: { id },
+        });
 
-      // Log the deletion action for audit purposes
-      await logAction(user.id, 'DELETE_ORDER', {
-        deletedOrder: existingOrder,
-        deletedAt: new Date().toISOString(),
-        deletedBy: {
-          id: user.id,
-          email: user.email,
-          tipo: user.tipo,
-        },
+        // Log the deletion action for audit purposes within the same transaction
+        await logAction(user.id, 'DELETE_ORDER', {
+          deletedOrder: existingOrder,
+          deletedAt: new Date().toISOString(),
+          deletedBy: {
+            id: user.id,
+            email: user.email,
+            tipo: user.tipo,
+          },
+        }, tx);
       });
 
       fastifyInstance.log.info(`Ordem de serviço ${id} excluída pelo admin ${user.id}`);

@@ -32,12 +32,13 @@ function getPrismaInstance() {
  * @param {string} userId - ID do usuário que realizou a ação
  * @param {string} action - Tipo da ação (ex: 'DELETE_ORDER', 'LOGIN')
  * @param {Object} details - Detalhes da ação (dados antigos/novos)
+ * @param {Object} [tx] - Optional transaction client to use for the operation
  * @returns {Promise<Object>} - O registro de auditoria criado
  */
-async function logAction(userId, action, details) {
-  const prisma = getPrismaInstance();
+async function logAction(userId, action, details, tx = null) {
+  const client = tx || getPrismaInstance();
   
-  const auditLog = await prisma.auditLog.create({
+  const auditLog = await client.auditLog.create({
     data: {
       userId,
       action,
