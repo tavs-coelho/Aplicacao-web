@@ -51,7 +51,9 @@ function MyAccount({ currentUser, onUserUpdate }) {
     setIsSubmitting(true);
 
     try {
-      // Get token from localStorage (would typically come from auth context)
+      // Get token from localStorage
+      // NOTE: In a production app, this should use a secure auth context or httpOnly cookies
+      // to prevent XSS attacks. For this demo app, localStorage is used for simplicity.
       const token = localStorage.getItem('token');
       
       // Build request body
@@ -70,7 +72,8 @@ function MyAccount({ currentUser, onUserUpdate }) {
 
       // Check if there's anything to update
       if (Object.keys(body).length === 0) {
-        toast.success('Nenhuma alteração a ser salva');
+        // Use info toast instead of success since no action was performed
+        toast('Nenhuma alteração detectada', { icon: 'ℹ️' });
         setIsSubmitting(false);
         return;
       }

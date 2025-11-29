@@ -1217,11 +1217,22 @@ fastifyInstance.put('/me', {
   const userId = request.user.id;
   const { nome, senhaAtual, novaSenha } = request.body || {};
 
+  // Trim nome if provided
+  const trimmedNome = nome ? nome.trim() : null;
+
   // Check if there's anything to update
-  if (!nome && !novaSenha) {
+  if (!trimmedNome && !novaSenha) {
     return reply.status(400).send({
       error: 'Bad Request',
       message: 'Nenhum dado para atualizar. Informe nome e/ou nova senha.',
+    });
+  }
+
+  // Validate nome is not empty/whitespace-only
+  if (trimmedNome !== null && trimmedNome.length === 0) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Nome não pode ser vazio',
     });
   }
 
@@ -1241,9 +1252,9 @@ fastifyInstance.put('/me', {
     // Prepare update data
     const updateData = {};
 
-    // Update name if provided
-    if (nome) {
-      updateData.nome = nome;
+    // Update name if provided (use trimmed value)
+    if (trimmedNome) {
+      updateData.nome = trimmedNome;
     }
 
     // Handle password change
@@ -1258,6 +1269,9 @@ fastifyInstance.put('/me', {
 
       // Verify current password
       // Check if stored password is hashed (starts with $2) or plain text
+      // NOTE: Plain text password support is for backward compatibility with existing
+      // development/seed data. In production, all passwords should be migrated to bcrypt.
+      // Once a user changes their password via this endpoint, it will be stored as hashed.
       let isCurrentPasswordValid;
       if (user.senha.startsWith('$2')) {
         // Password is hashed, use bcrypt.compare
