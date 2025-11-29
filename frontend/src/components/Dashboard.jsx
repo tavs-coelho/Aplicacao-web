@@ -5,11 +5,13 @@ import { useState, useCallback, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
+import DashboardMetricsCards from './DashboardMetricsCards';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { ToastContainer } from './Toast';
 import useSocket from '../hooks/useSocket';
+import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
 import MyAccount from './MyAccount';
@@ -172,6 +174,7 @@ function Sidebar({ activeView, onViewChange, currentUser }) {
   );
 }
 
+// Service Orders Table component with search and filter functionality
 // Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
@@ -497,6 +500,10 @@ function Dashboard() {
   const [toasts, setToasts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Fetch dashboard metrics from API
+  // Note: In production, pass a real auth token from context/state
+  const { metrics, loading: metricsLoading } = useDashboardMetrics(null);
   
   // Current user state (would typically come from auth context)
   const [currentUser, setCurrentUser] = useState({
@@ -624,6 +631,9 @@ function Dashboard() {
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
+            {/* Dashboard Metrics Cards - Large cards for key metrics from API */}
+            <DashboardMetricsCards metrics={metrics} loading={metricsLoading} />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
