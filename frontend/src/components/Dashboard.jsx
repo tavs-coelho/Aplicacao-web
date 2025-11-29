@@ -68,6 +68,13 @@ const sampleClients = [
   { id: '5', nome: 'Fernanda Rocha', telefone: '5551955554444', email: 'fernanda.rocha@email.com' },
 ];
 
+// Sample technicians data for the filter dropdown
+const sampleTechnicians = [
+  { id: 'tech-1', nome: 'Carlos Santos' },
+  { id: 'tech-2', nome: 'Pedro Costa' },
+  { id: 'tech-3', nome: 'Ana Pereira' },
+];
+
 // Status badge component with color-coded styling
 function StatusBadge({ status }) {
   const getStatusStyles = () => {
@@ -157,6 +164,8 @@ function Sidebar({ activeView, onViewChange }) {
   );
 }
 
+// Service Orders Table component with search and filter functionality
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters }) {
 // Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
@@ -202,6 +211,75 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
           </button>
         </div>
       </div>
+      
+      {/* Search and Filter Bar */}
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* Search Input */}
+          <div className="flex-1 min-w-[200px]">
+            <label htmlFor="search" className="sr-only">Buscar</label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                🔍
+              </span>
+              <input
+                id="search"
+                type="text"
+                placeholder="Buscar por cliente ou endereço..."
+                value={filters.search}
+                onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+          </div>
+          
+          {/* Status Filter */}
+          <div className="min-w-[150px]">
+            <label htmlFor="status-filter" className="sr-only">Status</label>
+            <select
+              id="status-filter"
+              value={filters.status}
+              onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+            >
+              <option value="">Todos os Status</option>
+              <option value="PENDENTE">Pendente</option>
+              <option value="EM_ANDAMENTO">Em Andamento</option>
+              <option value="CONCLUIDO">Concluído</option>
+            </select>
+          </div>
+          
+          {/* Technician Filter */}
+          <div className="min-w-[180px]">
+            <label htmlFor="tech-filter" className="sr-only">Técnico</label>
+            <select
+              id="tech-filter"
+              value={filters.techId}
+              onChange={(e) => onFilterChange({ ...filters, techId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+            >
+              <option value="">Todos os Técnicos</option>
+              {technicians.map((tech) => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Clear Filters Button */}
+          {(filters.search || filters.status || filters.techId) && (
+            <button
+              type="button"
+              onClick={() => onFilterChange({ search: '', status: '', techId: '' })}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -239,38 +317,46 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {order.cliente}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{order.tecnico}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {formatDate(order.data)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <StatusBadge status={order.status} />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {order.status === 'EM_ANDAMENTO' && (
-                    <button
-                      type="button"
-                      onClick={() => onFinalizeOrder(order)}
-                      className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    >
-                      <span className="mr-1">✅</span>
-                      Finalizar
-                    </button>
-                  )}
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                  Nenhuma ordem de serviço encontrada.
                 </td>
               </tr>
-            ))}
+            ) : (
+              orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {order.cliente}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{order.tecnico}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {formatDate(order.data)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <StatusBadge status={order.status} />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {order.status === 'EM_ANDAMENTO' && (
+                      <button
+                        type="button"
+                        onClick={() => onFinalizeOrder(order)}
+                        className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                      >
+                        <span className="mr-1">✅</span>
+                        Finalizar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -473,6 +559,38 @@ function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
+  const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
+
+  // Filter orders based on current filters (client-side filtering for sample data)
+  const filteredOrders = orders.filter((order) => {
+    // Search filter (client name or address)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      const clientMatch = order.cliente?.toLowerCase().includes(searchLower);
+      const addressMatch = order.clienteEndereco?.toLowerCase().includes(searchLower);
+      if (!clientMatch && !addressMatch) {
+        return false;
+      }
+    }
+    
+    // Status filter
+    if (filters.status && order.status !== filters.status) {
+      return false;
+    }
+    
+    // Technician filter
+    if (filters.techId && order.tecnicoId !== filters.techId) {
+      return false;
+    }
+    
+    return true;
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    // In a real application, this would call the API with the new filters:
+    // fetchOrders(newFilters);
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
@@ -493,7 +611,7 @@ function Dashboard() {
   };
 
   const handleExportOrders = () => {
-    exportOrdersToCSV(orders);
+    exportOrdersToCSV(filteredOrders);
   };
 
   const handleSubmitFinalization = (order, photos) => {
@@ -616,6 +734,12 @@ function Dashboard() {
               <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
             </div>
             <ServiceOrdersTable 
+              orders={filteredOrders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
+              technicians={sampleTechnicians}
+              onFilterChange={handleFilterChange}
+              filters={filters}
               orders={orders} 
               onFinalizeOrder={handleFinalizeOrder} 
               onExport={handleExportOrders}
@@ -628,6 +752,12 @@ function Dashboard() {
         {/* Orders View */}
         {activeView === 'orders' && (
           <ServiceOrdersTable 
+            orders={filteredOrders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
+            technicians={sampleTechnicians}
+            onFilterChange={handleFilterChange}
+            filters={filters}
             orders={orders} 
             onFinalizeOrder={handleFinalizeOrder} 
             onExport={handleExportOrders}
