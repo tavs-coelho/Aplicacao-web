@@ -41,7 +41,7 @@ function formatTime(minutes) {
 /**
  * MetricCard - A large card component for displaying a single metric
  */
-function MetricCard({ icon, title, value, subtitle, bgColor, textColor, loading }) {
+function MetricCard({ icon, title, value, subtitle, bgColor, textColor, loading = false }) {
   return (
     <div className="bg-white rounded-xl shadow-lg p-8 transition-transform hover:scale-[1.02]">
       <div className="flex items-start justify-between">
