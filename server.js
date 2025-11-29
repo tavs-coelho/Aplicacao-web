@@ -254,8 +254,16 @@ fastifyInstance.get('/orders', {
   schema: {
     tags: ['Orders'],
     summary: 'Listar todas as ordens de serviço',
-    description: 'Retorna todas as ordens de serviço com informações do técnico, cliente e fotos',
+    description: 'Retorna todas as ordens de serviço com informações do técnico, cliente e fotos. Suporta filtros por busca textual (nome do cliente ou endereço), status e técnico.',
     security: [{ bearerAuth: [] }],
+    querystring: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Busca por nome do cliente ou endereço (case insensitive)', example: 'João' },
+        status: { type: 'string', enum: ['PENDENTE', 'EM_ANDAMENTO', 'CONCLUIDO'], description: 'Filtrar por status da ordem de serviço', example: 'PENDENTE' },
+        techId: { type: 'string', format: 'uuid', description: 'Filtrar por ID do técnico responsável' },
+      },
+    },
     response: {
       200: {
         type: 'object',
@@ -322,7 +330,33 @@ fastifyInstance.get('/orders', {
   },
 }, async (request, reply) => {
   try {
+    const { search, status, techId } = request.query;
+
+    // Build the where clause for Prisma
+    const whereClause = {};
+
+    // Filter by status if provided
+    if (status) {
+      whereClause.status = status;
+    }
+
+    // Filter by techId if provided
+    if (techId) {
+      whereClause.tecnicoId = techId;
+    }
+
+    // Search filter: case-insensitive search on client name OR address
+    if (search) {
+      whereClause.cliente = {
+        OR: [
+          { nome: { contains: search, mode: 'insensitive' } },
+          { endereco: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
     const serviceOrders = await prisma.serviceOrder.findMany({
+      where: whereClause,
       include: {
         tecnico: {
           select: {
@@ -859,6 +893,12 @@ fastifyInstance.patch('/orders/:id/complete', {
     tags: ['Orders'],
     summary: 'Finalizar ordem de serviço',
     description: 'Marca uma ordem de serviço como concluída e emite notificação em tempo real para o painel administrativo',
+// PATCH /orders/:id/rating - Update rating and feedback for a service order
+fastifyInstance.patch('/orders/:id/rating', {
+  schema: {
+    tags: ['Orders'],
+    summary: 'Atualizar avaliação da ordem de serviço',
+    description: 'Atualiza a nota (1 a 5) e o comentário opcional do cliente para uma ordem de serviço.',
     security: [{ bearerAuth: [] }],
     params: {
       type: 'object',
@@ -867,11 +907,30 @@ fastifyInstance.patch('/orders/:id/complete', {
         id: { type: 'string', format: 'uuid', description: 'ID da ordem de serviço' },
       },
     },
+    body: {
+      type: 'object',
+      required: ['rating'],
+      properties: {
+        rating: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 5,
+          description: 'Nota do cliente (1 a 5)',
+          example: 5,
+        },
+        feedback: {
+          type: 'string',
+          description: 'Comentário opcional do cliente',
+          example: 'Excelente serviço!',
+        },
+      },
+    },
     response: {
       200: {
         type: 'object',
         properties: {
           message: { type: 'string', example: 'Ordem de serviço finalizada com sucesso' },
+          message: { type: 'string', example: 'Avaliação salva com sucesso' },
           serviceOrder: {
             type: 'object',
             properties: {
@@ -901,6 +960,19 @@ fastifyInstance.patch('/orders/:id/complete', {
           },
         },
       },
+              rating: { type: 'integer', nullable: true },
+              feedback: { type: 'string', nullable: true },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+          message: { type: 'string', example: 'Rating é obrigatório e deve ser entre 1 e 5' },
+        },
+      },
       401: {
         type: 'object',
         properties: {
@@ -920,6 +992,7 @@ fastifyInstance.patch('/orders/:id/complete', {
         properties: {
           error: { type: 'string', example: 'Internal Server Error' },
           message: { type: 'string', example: 'Erro ao finalizar ordem de serviço' },
+          message: { type: 'string', example: 'Erro ao salvar avaliação' },
         },
       },
     },
@@ -935,6 +1008,22 @@ fastifyInstance.patch('/orders/:id/complete', {
   }
 
   const { id } = request.params;
+  const { rating, feedback } = request.body || {};
+
+  // Validate rating
+  if (rating === undefined || rating === null) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Rating é obrigatório',
+    });
+  }
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return reply.status(400).send({
+      error: 'Bad Request',
+      message: 'Rating deve ser um número inteiro entre 1 e 5',
+    });
+  }
 
   try {
     // Find the existing service order
@@ -991,6 +1080,22 @@ fastifyInstance.patch('/orders/:id/complete', {
 
     return reply.send({
       message: 'Ordem de serviço finalizada com sucesso',
+    // Update the service order with rating and feedback
+    const serviceOrder = await prisma.serviceOrder.update({
+      where: { id },
+      data: {
+        rating,
+        feedback: feedback || null,
+      },
+      select: {
+        id: true,
+        rating: true,
+        feedback: true,
+      },
+    });
+
+    return reply.send({
+      message: 'Avaliação salva com sucesso',
       serviceOrder,
     });
   } catch (error) {
@@ -998,6 +1103,7 @@ fastifyInstance.patch('/orders/:id/complete', {
     return reply.status(500).send({
       error: 'Internal Server Error',
       message: 'Erro ao finalizar ordem de serviço',
+      message: 'Erro ao salvar avaliação',
     });
   }
 });

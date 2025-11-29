@@ -2,6 +2,8 @@
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
 import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
@@ -9,6 +11,8 @@ import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { ToastContainer } from './Toast';
 import useSocket from '../hooks/useSocket';
+import TableSkeleton from './TableSkeleton';
+import NewOrderModal from './NewOrderModal';
 
 const sampleServiceOrders = [
   {
@@ -65,6 +69,13 @@ const sampleClients = [
   { id: '3', nome: 'Ana Souza', telefone: '5531977776666', email: 'ana.souza@email.com' },
   { id: '4', nome: 'Roberto Lima', telefone: '5541966665555', email: 'roberto.lima@email.com' },
   { id: '5', nome: 'Fernanda Rocha', telefone: '5551955554444', email: 'fernanda.rocha@email.com' },
+];
+
+// Sample technicians data for the filter dropdown
+const sampleTechnicians = [
+  { id: 'tech-1', nome: 'Carlos Santos' },
+  { id: 'tech-2', nome: 'Pedro Costa' },
+  { id: 'tech-3', nome: 'Ana Pereira' },
 ];
 
 // Status badge component with color-coded styling
@@ -156,8 +167,10 @@ function Sidebar({ activeView, onViewChange }) {
   );
 }
 
+// Service Orders Table component with search and filter functionality
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters }) {
 // Service Orders Table component
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
@@ -166,6 +179,10 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
       year: 'numeric',
     });
   };
+
+  if (isLoading) {
+    return <TableSkeleton rows={5} columns={5} />;
+  }
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -178,15 +195,94 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
             Lista de todas as ordens de serviço
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onExport}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <span className="mr-2">📥</span>
-          Exportar Relatório
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onNewOrder}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          >
+            <span className="mr-2">➕</span>
+            Nova OS
+          </button>
+          <button
+            type="button"
+            onClick={onExport}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <span className="mr-2">📥</span>
+            Exportar Relatório
+          </button>
+        </div>
       </div>
+      
+      {/* Search and Filter Bar */}
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* Search Input */}
+          <div className="flex-1 min-w-[200px]">
+            <label htmlFor="search" className="sr-only">Buscar</label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                🔍
+              </span>
+              <input
+                id="search"
+                type="text"
+                placeholder="Buscar por cliente ou endereço..."
+                value={filters.search}
+                onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+          </div>
+          
+          {/* Status Filter */}
+          <div className="min-w-[150px]">
+            <label htmlFor="status-filter" className="sr-only">Status</label>
+            <select
+              id="status-filter"
+              value={filters.status}
+              onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+            >
+              <option value="">Todos os Status</option>
+              <option value="PENDENTE">Pendente</option>
+              <option value="EM_ANDAMENTO">Em Andamento</option>
+              <option value="CONCLUIDO">Concluído</option>
+            </select>
+          </div>
+          
+          {/* Technician Filter */}
+          <div className="min-w-[180px]">
+            <label htmlFor="tech-filter" className="sr-only">Técnico</label>
+            <select
+              id="tech-filter"
+              value={filters.techId}
+              onChange={(e) => onFilterChange({ ...filters, techId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+            >
+              <option value="">Todos os Técnicos</option>
+              {technicians.map((tech) => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Clear Filters Button */}
+          {(filters.search || filters.status || filters.techId) && (
+            <button
+              type="button"
+              onClick={() => onFilterChange({ search: '', status: '', techId: '' })}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -224,38 +320,46 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport }) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {order.cliente}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{order.tecnico}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {formatDate(order.data)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <StatusBadge status={order.status} />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {order.status === 'EM_ANDAMENTO' && (
-                    <button
-                      type="button"
-                      onClick={() => onFinalizeOrder(order)}
-                      className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    >
-                      <span className="mr-1">✅</span>
-                      Finalizar
-                    </button>
-                  )}
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                  Nenhuma ordem de serviço encontrada.
                 </td>
               </tr>
-            ))}
+            ) : (
+              orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {order.cliente}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{order.tecnico}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {formatDate(order.data)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <StatusBadge status={order.status} />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {order.status === 'EM_ANDAMENTO' && (
+                      <button
+                        type="button"
+                        onClick={() => onFinalizeOrder(order)}
+                        className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                      >
+                        <span className="mr-1">✅</span>
+                        Finalizar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -450,6 +554,9 @@ function ClientsTable({ clients }) {
   );
 }
 
+// Extract unique technicians from orders
+const sampleTechnicians = [...new Set(sampleServiceOrders.map(o => o.tecnico))];
+
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -485,6 +592,47 @@ function Dashboard() {
   // Remove toast from the list
   const handleRemoveToast = useCallback((toastId) => {
     setToasts(prev => prev.filter(t => t.id !== toastId));
+  const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
+
+  // Filter orders based on current filters (client-side filtering for sample data)
+  const filteredOrders = orders.filter((order) => {
+    // Search filter (client name or address)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      const clientMatch = order.cliente?.toLowerCase().includes(searchLower);
+      const addressMatch = order.clienteEndereco?.toLowerCase().includes(searchLower);
+      if (!clientMatch && !addressMatch) {
+        return false;
+      }
+    }
+    
+    // Status filter
+    if (filters.status && order.status !== filters.status) {
+      return false;
+    }
+    
+    // Technician filter
+    if (filters.techId && order.tecnicoId !== filters.techId) {
+      return false;
+    }
+    
+    return true;
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    // In a real application, this would call the API with the new filters:
+    // fetchOrders(newFilters);
+  };
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Simulate initial data loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleFinalizeOrder = (order) => {
@@ -496,7 +644,7 @@ function Dashboard() {
   };
 
   const handleExportOrders = () => {
-    exportOrdersToCSV(orders);
+    exportOrdersToCSV(filteredOrders);
   };
 
   const handleSubmitFinalization = (order, photos) => {
@@ -512,6 +660,18 @@ function Dashboard() {
 
   const handleViewChange = (view) => {
     setActiveView(view);
+  };
+
+  const handleNewOrder = () => {
+    setShowNewOrderModal(true);
+  };
+
+  const handleCloseNewOrderModal = () => {
+    setShowNewOrderModal(false);
+  };
+
+  const handleSubmitNewOrder = (newOrder) => {
+    setOrders(prev => [...prev, newOrder]);
   };
 
   const getViewTitle = () => {
@@ -537,6 +697,7 @@ function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
+      <Toaster position="top-right" />
       <Sidebar activeView={activeView} onViewChange={handleViewChange} />
       <main className="flex-1 p-8">
         <div className="mb-8">
@@ -665,13 +826,41 @@ function Dashboard() {
                 </div>
               </div>
             </div>
-            <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} onExport={handleExportOrders} />
+            {/* Technician Performance Chart */}
+            <div className="mb-8">
+              <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
+            </div>
+            <ServiceOrdersTable 
+              orders={filteredOrders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
+              technicians={sampleTechnicians}
+              onFilterChange={handleFilterChange}
+              filters={filters}
+              orders={orders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
+              onNewOrder={handleNewOrder}
+              isLoading={isLoading}
+            />
           </>
         )}
 
         {/* Orders View */}
         {activeView === 'orders' && (
-          <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} onExport={handleExportOrders} />
+          <ServiceOrdersTable 
+            orders={filteredOrders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
+            technicians={sampleTechnicians}
+            onFilterChange={handleFilterChange}
+            filters={filters}
+            orders={orders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
+            onNewOrder={handleNewOrder}
+            isLoading={isLoading}
+          />
         )}
 
         {/* Clients View */}
@@ -696,6 +885,16 @@ function Dashboard() {
           order={selectedOrder}
           onClose={handleCloseModal}
           onSubmit={handleSubmitFinalization}
+        />
+      )}
+
+      {/* New Order Modal */}
+      {showNewOrderModal && (
+        <NewOrderModal
+          onClose={handleCloseNewOrderModal}
+          onSubmit={handleSubmitNewOrder}
+          clients={sampleClients}
+          technicians={sampleTechnicians}
         />
       )}
     </div>

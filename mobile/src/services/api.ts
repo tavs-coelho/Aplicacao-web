@@ -28,3 +28,37 @@ export async function fetchTechnicianOrders(
 
   return response.json();
 }
+
+/**
+ * Submits a rating and optional feedback for a service order
+ * @param orderId - The ID of the service order
+ * @param rating - The rating (1 to 5)
+ * @param feedback - Optional feedback comment
+ * @param token - The authentication token
+ * @returns Promise with the updated service order rating info
+ */
+export async function submitRating(
+  orderId: string,
+  rating: number,
+  feedback: string,
+  token: string
+): Promise<{ message: string; serviceOrder: { id: string; rating: number; feedback: string | null } }> {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}/rating`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      rating,
+      feedback: feedback.trim() || undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
