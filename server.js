@@ -131,8 +131,6 @@ const verifyToken = (request) => {
   }
 };
 
-// Health check route
-app.get('/health', async (request, reply) => {
 // Register routes plugin to ensure routes are collected by Swagger
 app.register(async function routes(fastifyInstance) {
   // Helper function to verify JWT token and extract user info
