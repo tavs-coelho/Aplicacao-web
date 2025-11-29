@@ -1,18 +1,20 @@
 // Dashboard component with Sidebar and Service Orders table
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
-import { useState, useCallback } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
+import DashboardMetricsCards from './DashboardMetricsCards';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { ToastContainer } from './Toast';
 import useSocket from '../hooks/useSocket';
+import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
+import MyAccount from './MyAccount';
 
 const sampleServiceOrders = [
   {
@@ -116,13 +118,14 @@ function StatusBadge({ status }) {
 }
 
 // Sidebar component
-function Sidebar({ activeView, onViewChange }) {
+function Sidebar({ activeView, onViewChange, currentUser }) {
   const menuItems = [
     { name: 'Dashboard', key: 'dashboard', icon: '📊' },
     { name: 'Ordens de Serviço', key: 'orders', icon: '📋' },
     { name: 'Clientes', key: 'clients', icon: '👥' },
     { name: 'Técnicos', key: 'technicians', icon: '🔧' },
     { name: 'Relatórios', key: 'reports', icon: '📈' },
+    { name: 'Minha Conta', key: 'myaccount', icon: '👤' },
     { name: 'Configurações', key: 'settings', icon: '⚙️' },
   ];
 
@@ -153,22 +156,25 @@ function Sidebar({ activeView, onViewChange }) {
         </ul>
       </nav>
       <div className="p-4 border-t border-gray-700">
-        <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => onViewChange('myaccount')}
+          className="flex items-center w-full hover:bg-gray-700 rounded-lg p-2 transition-colors"
+        >
           <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
             <span className="text-sm">👤</span>
           </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">Admin</p>
-            <p className="text-xs text-gray-400">admin@example.com</p>
+          <div className="ml-3 text-left">
+            <p className="text-sm font-medium">{currentUser?.nome || 'Admin'}</p>
+            <p className="text-xs text-gray-400">{currentUser?.email || 'admin@example.com'}</p>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );
 }
 
 // Service Orders Table component with search and filter functionality
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters }) {
 // Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const formatDate = (dateString) => {
@@ -212,74 +218,6 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
             <span className="mr-2">📥</span>
             Exportar Relatório
           </button>
-        </div>
-      </div>
-      
-      {/* Search and Filter Bar */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <div className="flex flex-wrap gap-4 items-center">
-          {/* Search Input */}
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="search" className="sr-only">Buscar</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                🔍
-              </span>
-              <input
-                id="search"
-                type="text"
-                placeholder="Buscar por cliente ou endereço..."
-                value={filters.search}
-                onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              />
-            </div>
-          </div>
-          
-          {/* Status Filter */}
-          <div className="min-w-[150px]">
-            <label htmlFor="status-filter" className="sr-only">Status</label>
-            <select
-              id="status-filter"
-              value={filters.status}
-              onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            >
-              <option value="">Todos os Status</option>
-              <option value="PENDENTE">Pendente</option>
-              <option value="EM_ANDAMENTO">Em Andamento</option>
-              <option value="CONCLUIDO">Concluído</option>
-            </select>
-          </div>
-          
-          {/* Technician Filter */}
-          <div className="min-w-[180px]">
-            <label htmlFor="tech-filter" className="sr-only">Técnico</label>
-            <select
-              id="tech-filter"
-              value={filters.techId}
-              onChange={(e) => onFilterChange({ ...filters, techId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            >
-              <option value="">Todos os Técnicos</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Clear Filters Button */}
-          {(filters.search || filters.status || filters.techId) && (
-            <button
-              type="button"
-              onClick={() => onFilterChange({ search: '', status: '', techId: '' })}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Limpar filtros
-            </button>
-          )}
         </div>
       </div>
 
@@ -554,15 +492,26 @@ function ClientsTable({ clients }) {
   );
 }
 
-// Extract unique technicians from orders
-const sampleTechnicians = [...new Set(sampleServiceOrders.map(o => o.tecnico))];
-
 // Main Dashboard component
 function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Fetch dashboard metrics from API
+  // Note: In production, pass a real auth token from context/state
+  const { metrics, loading: metricsLoading } = useDashboardMetrics(null);
+  
+  // Current user state (would typically come from auth context)
+  const [currentUser, setCurrentUser] = useState({
+    id: 'user-1',
+    nome: 'Admin',
+    email: 'admin@example.com',
+    tipo: 'ADMIN',
+  });
 
   // Handle order completed events from Socket.IO
   const handleOrderCompleted = useCallback((data) => {
@@ -592,40 +541,7 @@ function Dashboard() {
   // Remove toast from the list
   const handleRemoveToast = useCallback((toastId) => {
     setToasts(prev => prev.filter(t => t.id !== toastId));
-  const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
-
-  // Filter orders based on current filters (client-side filtering for sample data)
-  const filteredOrders = orders.filter((order) => {
-    // Search filter (client name or address)
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const clientMatch = order.cliente?.toLowerCase().includes(searchLower);
-      const addressMatch = order.clienteEndereco?.toLowerCase().includes(searchLower);
-      if (!clientMatch && !addressMatch) {
-        return false;
-      }
-    }
-    
-    // Status filter
-    if (filters.status && order.status !== filters.status) {
-      return false;
-    }
-    
-    // Technician filter
-    if (filters.techId && order.tecnicoId !== filters.techId) {
-      return false;
-    }
-    
-    return true;
-  });
-
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
-    // In a real application, this would call the API with the new filters:
-    // fetchOrders(newFilters);
-  };
-  const [isLoading, setIsLoading] = useState(true);
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  }, []);
 
   // Simulate initial data loading
   useEffect(() => {
@@ -644,7 +560,7 @@ function Dashboard() {
   };
 
   const handleExportOrders = () => {
-    exportOrdersToCSV(filteredOrders);
+    exportOrdersToCSV(orders);
   };
 
   const handleSubmitFinalization = (order, photos) => {
@@ -674,6 +590,11 @@ function Dashboard() {
     setOrders(prev => [...prev, newOrder]);
   };
 
+  // Handle user profile update from MyAccount component
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(prev => ({ ...prev, ...updatedUser }));
+  };
+
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
@@ -686,6 +607,8 @@ function Dashboard() {
         return { title: 'Técnicos', subtitle: 'Gerencie os técnicos' };
       case 'reports':
         return { title: 'Relatórios', subtitle: 'Visualize os relatórios do sistema' };
+      case 'myaccount':
+        return { title: 'Minha Conta', subtitle: 'Gerencie suas informações pessoais' };
       case 'settings':
         return { title: 'Configurações', subtitle: 'Configure o sistema' };
       default:
@@ -698,80 +621,19 @@ function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Toaster position="top-right" />
-      <Sidebar activeView={activeView} onViewChange={handleViewChange} />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} currentUser={currentUser} />
       <main className="flex-1 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
           <p className="text-gray-600">{viewInfo.subtitle}</p>
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">📋</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Total de Ordens</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-full">
-                <span className="text-2xl">✅</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Concluídas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'CONCLUIDO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Pendentes</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'PENDENTE').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <span className="text-2xl">🔄</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Em Andamento</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Technician Performance Chart */}
-        <div className="mb-8">
-          <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
-        </div>
-
-        {/* Service Orders Table */}
-        <ServiceOrdersTable orders={orders} onFinalizeOrder={handleFinalizeOrder} />
-
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
+            {/* Dashboard Metrics Cards - Large cards for key metrics from API */}
+            <DashboardMetricsCards metrics={metrics} loading={metricsLoading} />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
@@ -831,12 +693,6 @@ function Dashboard() {
               <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
             </div>
             <ServiceOrdersTable 
-              orders={filteredOrders} 
-              onFinalizeOrder={handleFinalizeOrder} 
-              onExport={handleExportOrders}
-              technicians={sampleTechnicians}
-              onFilterChange={handleFilterChange}
-              filters={filters}
               orders={orders} 
               onFinalizeOrder={handleFinalizeOrder} 
               onExport={handleExportOrders}
@@ -849,12 +705,6 @@ function Dashboard() {
         {/* Orders View */}
         {activeView === 'orders' && (
           <ServiceOrdersTable 
-            orders={filteredOrders} 
-            onFinalizeOrder={handleFinalizeOrder} 
-            onExport={handleExportOrders}
-            technicians={sampleTechnicians}
-            onFilterChange={handleFilterChange}
-            filters={filters}
             orders={orders} 
             onFinalizeOrder={handleFinalizeOrder} 
             onExport={handleExportOrders}
@@ -866,6 +716,11 @@ function Dashboard() {
         {/* Clients View */}
         {activeView === 'clients' && (
           <ClientsTable clients={sampleClients} />
+        )}
+
+        {/* My Account View */}
+        {activeView === 'myaccount' && (
+          <MyAccount currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         )}
 
         {/* Placeholder views for other sections */}
