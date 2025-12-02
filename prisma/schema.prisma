@@ -69,6 +69,7 @@ model ServiceOrder {
   status           ServiceOrderStatus @default(PENDENTE)
   dataInicio       DateTime?
   dataFim          DateTime?
+  valor            Float?             // Valor do serviço em reais
   relatorioTecnico String?
   rating           Int?               // Avaliação do cliente (1 a 5)
   feedback         String?            // Comentário opcional do cliente
@@ -124,4 +125,16 @@ model MaintenanceReminder {
   serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id])
 
   @@map("maintenance_reminders")
+}
+
+// Model: AuditLog (Registro de Auditoria)
+// Registra ações importantes no sistema para fins de segurança e auditoria
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   // ID do usuário que realizou a ação
+  action    String   // Tipo da ação (ex: 'DELETE_ORDER', 'LOGIN')
+  details   Json     // Detalhes da ação (dados antigos/novos em formato JSON)
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }

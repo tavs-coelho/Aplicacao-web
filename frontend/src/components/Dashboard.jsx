@@ -6,14 +6,17 @@ import { useTranslation } from 'react-i18next';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
+import DashboardMetricsCards from './DashboardMetricsCards';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { ToastContainer } from './Toast';
 import useSocket from '../hooks/useSocket';
+import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
 import LanguageSwitcher from './LanguageSwitcher';
+import MyAccount from './MyAccount';
 
 const sampleServiceOrders = [
   {
@@ -129,6 +132,15 @@ function Sidebar({ activeView, onViewChange }) {
     { nameKey: 'sidebar.technicians', key: 'technicians', icon: '🔧' },
     { nameKey: 'sidebar.reports', key: 'reports', icon: '📈' },
     { nameKey: 'sidebar.settings', key: 'settings', icon: '⚙️' },
+function Sidebar({ activeView, onViewChange, currentUser }) {
+  const menuItems = [
+    { name: 'Dashboard', key: 'dashboard', icon: '📊' },
+    { name: 'Ordens de Serviço', key: 'orders', icon: '📋' },
+    { name: 'Clientes', key: 'clients', icon: '👥' },
+    { name: 'Técnicos', key: 'technicians', icon: '🔧' },
+    { name: 'Relatórios', key: 'reports', icon: '📈' },
+    { name: 'Minha Conta', key: 'myaccount', icon: '👤' },
+    { name: 'Configurações', key: 'settings', icon: '⚙️' },
   ];
 
   return (
@@ -163,21 +175,26 @@ function Sidebar({ activeView, onViewChange }) {
         </ul>
       </nav>
       <div className="p-4 border-t border-gray-700">
-        <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => onViewChange('myaccount')}
+          className="flex items-center w-full hover:bg-gray-700 rounded-lg p-2 transition-colors"
+        >
           <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
             <span className="text-sm">👤</span>
           </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">Admin</p>
-            <p className="text-xs text-gray-400">admin@example.com</p>
+          <div className="ml-3 text-left">
+            <p className="text-sm font-medium">{currentUser?.nome || 'Admin'}</p>
+            <p className="text-xs text-gray-400">{currentUser?.email || 'admin@example.com'}</p>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );
 }
 
 // Service Orders Table component with search and filter functionality
+// Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const { t, i18n } = useTranslation();
   
@@ -503,6 +520,20 @@ function Dashboard() {
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Fetch dashboard metrics from API
+  // Note: In production, pass a real auth token from context/state
+  const { metrics, loading: metricsLoading } = useDashboardMetrics(null);
+  
+  // Current user state (would typically come from auth context)
+  const [currentUser, setCurrentUser] = useState({
+    id: 'user-1',
+    nome: 'Admin',
+    email: 'admin@example.com',
+    tipo: 'ADMIN',
+  });
 
   // Handle order completed events from Socket.IO
   const handleOrderCompleted = useCallback((data) => {
@@ -584,6 +615,11 @@ function Dashboard() {
     setOrders(prev => [...prev, newOrder]);
   };
 
+  // Handle user profile update from MyAccount component
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(prev => ({ ...prev, ...updatedUser }));
+  };
+
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
@@ -596,6 +632,9 @@ function Dashboard() {
         return { title: t('sidebar.technicians'), subtitle: t('sidebar.technicians') };
       case 'reports':
         return { title: t('sidebar.reports'), subtitle: t('sidebar.reports') };
+        return { title: 'Relatórios', subtitle: 'Visualize os relatórios do sistema' };
+      case 'myaccount':
+        return { title: 'Minha Conta', subtitle: 'Gerencie suas informações pessoais' };
       case 'settings':
         return { title: t('sidebar.settings'), subtitle: t('sidebar.settings') };
       default:
@@ -608,7 +647,7 @@ function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Toaster position="top-right" />
-      <Sidebar activeView={activeView} onViewChange={handleViewChange} />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} currentUser={currentUser} />
       <main className="flex-1 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
@@ -618,6 +657,9 @@ function Dashboard() {
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
+            {/* Dashboard Metrics Cards - Large cards for key metrics from API */}
+            <DashboardMetricsCards metrics={metrics} loading={metricsLoading} />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
@@ -700,6 +742,11 @@ function Dashboard() {
         {/* Clients View */}
         {activeView === 'clients' && (
           <ClientsTable clients={sampleClients} />
+        )}
+
+        {/* My Account View */}
+        {activeView === 'myaccount' && (
+          <MyAccount currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         )}
 
         {/* Placeholder views for other sections */}
