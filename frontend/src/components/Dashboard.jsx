@@ -122,7 +122,7 @@ function StatusBadge({ status }) {
 }
 
 // Sidebar component
-function Sidebar({ activeView, onViewChange }) {
+function Sidebar({ activeView, onViewChange, currentUser }) {
   const { t } = useTranslation();
   
   const menuItems = [
@@ -132,15 +132,6 @@ function Sidebar({ activeView, onViewChange }) {
     { nameKey: 'sidebar.technicians', key: 'technicians', icon: '🔧' },
     { nameKey: 'sidebar.reports', key: 'reports', icon: '📈' },
     { nameKey: 'sidebar.settings', key: 'settings', icon: '⚙️' },
-function Sidebar({ activeView, onViewChange, currentUser }) {
-  const menuItems = [
-    { name: 'Dashboard', key: 'dashboard', icon: '📊' },
-    { name: 'Ordens de Serviço', key: 'orders', icon: '📋' },
-    { name: 'Clientes', key: 'clients', icon: '👥' },
-    { name: 'Técnicos', key: 'technicians', icon: '🔧' },
-    { name: 'Relatórios', key: 'reports', icon: '📈' },
-    { name: 'Minha Conta', key: 'myaccount', icon: '👤' },
-    { name: 'Configurações', key: 'settings', icon: '⚙️' },
   ];
 
   return (
@@ -193,8 +184,6 @@ function Sidebar({ activeView, onViewChange, currentUser }) {
   );
 }
 
-// Service Orders Table component with search and filter functionality
-function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters, onNewOrder, isLoading }) {
 // Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const { t, i18n } = useTranslation();
@@ -567,8 +556,6 @@ function Dashboard() {
   }, []);
 
   const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
-  const [isLoading, setIsLoading] = useState(true);
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
   // Filter orders based on current filters (client-side filtering for sample data)
   const filteredOrders = orders.filter((order) => {
@@ -600,9 +587,6 @@ function Dashboard() {
     // In a real application, this would call the API with the new filters:
     // fetchOrders(newFilters);
   };
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
   // Simulate initial data loading
   useEffect(() => {
