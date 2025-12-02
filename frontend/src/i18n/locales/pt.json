@@ -1,0 +1,55 @@
+{
+  "dashboard": {
+    "welcome": "Bem-vindo ao Sistema de Gestão de Equipes Externas",
+    "title": "Dashboard",
+    "serviceOrders": "Ordens de Serviço",
+    "clients": "Clientes",
+    "technicians": "Técnicos",
+    "reports": "Relatórios",
+    "settings": "Configurações"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "orders": "Ordens de Serviço",
+    "clients": "Clientes",
+    "technicians": "Técnicos",
+    "reports": "Relatórios",
+    "settings": "Configurações",
+    "systemTitle": "Sistema FSM",
+    "systemSubtitle": "Gestão de Equipes"
+  },
+  "orders": {
+    "title": "Ordens de Serviço",
+    "subtitle": "Lista de todas as ordens de serviço",
+    "newOrder": "Nova OS",
+    "exportReport": "Exportar Relatório",
+    "client": "Cliente",
+    "technician": "Técnico",
+    "date": "Data",
+    "status": "Status",
+    "actions": "Ações",
+    "finalize": "Finalizar",
+    "noOrders": "Nenhuma ordem de serviço encontrada."
+  },
+  "stats": {
+    "totalOrders": "Total de Ordens",
+    "completed": "Concluídas",
+    "pending": "Pendentes",
+    "inProgress": "Em Andamento"
+  },
+  "status": {
+    "completed": "Concluído",
+    "pending": "Pendente",
+    "inProgress": "Em Andamento"
+  },
+  "common": {
+    "exit": "Sair",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "search": "Buscar",
+    "loading": "Carregando..."
+  },
+  "header": {
+    "language": "Idioma"
+  }
+}

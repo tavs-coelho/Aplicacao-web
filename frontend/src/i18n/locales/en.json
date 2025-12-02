@@ -1,0 +1,55 @@
+{
+  "dashboard": {
+    "welcome": "Welcome to the Field Service Management System",
+    "title": "Dashboard",
+    "serviceOrders": "Service Orders",
+    "clients": "Clients",
+    "technicians": "Technicians",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "orders": "Service Orders",
+    "clients": "Clients",
+    "technicians": "Technicians",
+    "reports": "Reports",
+    "settings": "Settings",
+    "systemTitle": "FSM System",
+    "systemSubtitle": "Team Management"
+  },
+  "orders": {
+    "title": "Service Orders",
+    "subtitle": "List of all service orders",
+    "newOrder": "New Order",
+    "exportReport": "Export Report",
+    "client": "Client",
+    "technician": "Technician",
+    "date": "Date",
+    "status": "Status",
+    "actions": "Actions",
+    "finalize": "Finalize",
+    "noOrders": "No service orders found."
+  },
+  "stats": {
+    "totalOrders": "Total Orders",
+    "completed": "Completed",
+    "pending": "Pending",
+    "inProgress": "In Progress"
+  },
+  "status": {
+    "completed": "Completed",
+    "pending": "Pending",
+    "inProgress": "In Progress"
+  },
+  "common": {
+    "exit": "Exit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "search": "Search",
+    "loading": "Loading..."
+  },
+  "header": {
+    "language": "Language"
+  }
+}

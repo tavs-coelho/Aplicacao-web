@@ -2,16 +2,21 @@
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
+import DashboardMetricsCards from './DashboardMetricsCards';
 import { aggregateTechnicianPerformance } from '../utils/aggregateTechnicianPerformance';
 import WhatsAppReminderButton from './WhatsAppReminderButton';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { ToastContainer } from './Toast';
 import useSocket from '../hooks/useSocket';
+import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
+import LanguageSwitcher from './LanguageSwitcher';
+import MyAccount from './MyAccount';
 
 const sampleServiceOrders = [
   {
@@ -79,6 +84,8 @@ const sampleTechnicians = [
 
 // Status badge component with color-coded styling
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
+  
   const getStatusStyles = () => {
     switch (status) {
       case 'CONCLUIDO':
@@ -95,11 +102,11 @@ function StatusBadge({ status }) {
   const getStatusLabel = () => {
     switch (status) {
       case 'CONCLUIDO':
-        return 'Concluído';
+        return t('status.completed');
       case 'PENDENTE':
-        return 'Pendente';
+        return t('status.pending');
       case 'EM_ANDAMENTO':
-        return 'Em Andamento';
+        return t('status.inProgress');
       default:
         return status;
     }
@@ -116,20 +123,36 @@ function StatusBadge({ status }) {
 
 // Sidebar component
 function Sidebar({ activeView, onViewChange }) {
+  const { t } = useTranslation();
+  
+  const menuItems = [
+    { nameKey: 'sidebar.dashboard', key: 'dashboard', icon: '📊' },
+    { nameKey: 'sidebar.orders', key: 'orders', icon: '📋' },
+    { nameKey: 'sidebar.clients', key: 'clients', icon: '👥' },
+    { nameKey: 'sidebar.technicians', key: 'technicians', icon: '🔧' },
+    { nameKey: 'sidebar.reports', key: 'reports', icon: '📈' },
+    { nameKey: 'sidebar.settings', key: 'settings', icon: '⚙️' },
+function Sidebar({ activeView, onViewChange, currentUser }) {
   const menuItems = [
     { name: 'Dashboard', key: 'dashboard', icon: '📊' },
     { name: 'Ordens de Serviço', key: 'orders', icon: '📋' },
     { name: 'Clientes', key: 'clients', icon: '👥' },
     { name: 'Técnicos', key: 'technicians', icon: '🔧' },
     { name: 'Relatórios', key: 'reports', icon: '📈' },
+    { name: 'Minha Conta', key: 'myaccount', icon: '👤' },
     { name: 'Configurações', key: 'settings', icon: '⚙️' },
   ];
 
   return (
     <aside className="w-64 bg-gray-800 text-white min-h-screen flex flex-col">
       <div className="p-4 border-b border-gray-700">
-        <h1 className="text-xl font-bold">Sistema FSM</h1>
-        <p className="text-gray-400 text-sm">Gestão de Equipes</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">{t('sidebar.systemTitle')}</h1>
+            <p className="text-gray-400 text-sm">{t('sidebar.systemSubtitle')}</p>
+          </div>
+          <LanguageSwitcher />
+        </div>
       </div>
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
@@ -145,22 +168,26 @@ function Sidebar({ activeView, onViewChange }) {
                 }`}
               >
                 <span className="mr-3">{item.icon}</span>
-                {item.name}
+                {t(item.nameKey)}
               </button>
             </li>
           ))}
         </ul>
       </nav>
       <div className="p-4 border-t border-gray-700">
-        <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => onViewChange('myaccount')}
+          className="flex items-center w-full hover:bg-gray-700 rounded-lg p-2 transition-colors"
+        >
           <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
             <span className="text-sm">👤</span>
           </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">Admin</p>
-            <p className="text-xs text-gray-400">admin@example.com</p>
+          <div className="ml-3 text-left">
+            <p className="text-sm font-medium">{currentUser?.nome || 'Admin'}</p>
+            <p className="text-xs text-gray-400">{currentUser?.email || 'admin@example.com'}</p>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );
@@ -168,9 +195,13 @@ function Sidebar({ activeView, onViewChange }) {
 
 // Service Orders Table component with search and filter functionality
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters, onNewOrder, isLoading }) {
+// Service Orders Table component
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
+  const { t, i18n } = useTranslation();
+  
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
+    return date.toLocaleDateString(i18n.language === 'pt' ? 'pt-BR' : 'en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -186,10 +217,10 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-800">
-            Ordens de Serviço
+            {t('orders.title')}
           </h2>
           <p className="text-sm text-gray-500">
-            Lista de todas as ordens de serviço
+            {t('orders.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -199,7 +230,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
             className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
             <span className="mr-2">➕</span>
-            Nova OS
+            {t('orders.newOrder')}
           </button>
           <button
             type="button"
@@ -207,76 +238,8 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             <span className="mr-2">📥</span>
-            Exportar Relatório
+            {t('orders.exportReport')}
           </button>
-        </div>
-      </div>
-      
-      {/* Search and Filter Bar */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <div className="flex flex-wrap gap-4 items-center">
-          {/* Search Input */}
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="search" className="sr-only">Buscar</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                🔍
-              </span>
-              <input
-                id="search"
-                type="text"
-                placeholder="Buscar por cliente ou endereço..."
-                value={filters.search}
-                onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              />
-            </div>
-          </div>
-          
-          {/* Status Filter */}
-          <div className="min-w-[150px]">
-            <label htmlFor="status-filter" className="sr-only">Status</label>
-            <select
-              id="status-filter"
-              value={filters.status}
-              onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            >
-              <option value="">Todos os Status</option>
-              <option value="PENDENTE">Pendente</option>
-              <option value="EM_ANDAMENTO">Em Andamento</option>
-              <option value="CONCLUIDO">Concluído</option>
-            </select>
-          </div>
-          
-          {/* Technician Filter */}
-          <div className="min-w-[180px]">
-            <label htmlFor="tech-filter" className="sr-only">Técnico</label>
-            <select
-              id="tech-filter"
-              value={filters.techId}
-              onChange={(e) => onFilterChange({ ...filters, techId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            >
-              <option value="">Todos os Técnicos</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Clear Filters Button */}
-          {(filters.search || filters.status || filters.techId) && (
-            <button
-              type="button"
-              onClick={() => onFilterChange({ search: '', status: '', techId: '' })}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Limpar filtros
-            </button>
-          )}
         </div>
       </div>
 
@@ -288,31 +251,31 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Cliente
+                {t('orders.client')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Técnico
+                {t('orders.technician')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Data
+                {t('orders.date')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Status
+                {t('orders.status')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Ações
+                {t('orders.actions')}
               </th>
             </tr>
           </thead>
@@ -320,7 +283,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
             {orders.length === 0 ? (
               <tr>
                 <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                  Nenhuma ordem de serviço encontrada.
+                  {t('orders.noOrders')}
                 </td>
               </tr>
             ) : (
@@ -350,7 +313,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, on
                         className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                       >
                         <span className="mr-1">✅</span>
-                        Finalizar
+                        {t('orders.finalize')}
                       </button>
                     )}
                   </td>
@@ -553,10 +516,25 @@ function ClientsTable({ clients }) {
 
 // Main Dashboard component
 function Dashboard() {
+  const { t } = useTranslation();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Fetch dashboard metrics from API
+  // Note: In production, pass a real auth token from context/state
+  const { metrics, loading: metricsLoading } = useDashboardMetrics(null);
+  
+  // Current user state (would typically come from auth context)
+  const [currentUser, setCurrentUser] = useState({
+    id: 'user-1',
+    nome: 'Admin',
+    email: 'admin@example.com',
+    tipo: 'ADMIN',
+  });
 
   // Handle order completed events from Socket.IO
   const handleOrderCompleted = useCallback((data) => {
@@ -623,6 +601,9 @@ function Dashboard() {
     // fetchOrders(newFilters);
   };
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
   // Simulate initial data loading
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -640,7 +621,7 @@ function Dashboard() {
   };
 
   const handleExportOrders = () => {
-    exportOrdersToCSV(filteredOrders);
+    exportOrdersToCSV(orders);
   };
 
   const handleSubmitFinalization = (order, photos) => {
@@ -670,22 +651,30 @@ function Dashboard() {
     setOrders(prev => [...prev, newOrder]);
   };
 
+  // Handle user profile update from MyAccount component
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(prev => ({ ...prev, ...updatedUser }));
+  };
+
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
-        return { title: 'Dashboard', subtitle: 'Bem-vindo ao Sistema de Gestão de Equipes Externas' };
+        return { title: t('dashboard.title'), subtitle: t('dashboard.welcome') };
       case 'orders':
-        return { title: 'Ordens de Serviço', subtitle: 'Gerencie as ordens de serviço' };
+        return { title: t('orders.title'), subtitle: t('orders.subtitle') };
       case 'clients':
-        return { title: 'Clientes', subtitle: 'Lista de todos os clientes cadastrados' };
+        return { title: t('sidebar.clients'), subtitle: t('sidebar.clients') };
       case 'technicians':
-        return { title: 'Técnicos', subtitle: 'Gerencie os técnicos' };
+        return { title: t('sidebar.technicians'), subtitle: t('sidebar.technicians') };
       case 'reports':
+        return { title: t('sidebar.reports'), subtitle: t('sidebar.reports') };
         return { title: 'Relatórios', subtitle: 'Visualize os relatórios do sistema' };
+      case 'myaccount':
+        return { title: 'Minha Conta', subtitle: 'Gerencie suas informações pessoais' };
       case 'settings':
-        return { title: 'Configurações', subtitle: 'Configure o sistema' };
+        return { title: t('sidebar.settings'), subtitle: t('sidebar.settings') };
       default:
-        return { title: 'Dashboard', subtitle: 'Bem-vindo ao Sistema de Gestão de Equipes Externas' };
+        return { title: t('dashboard.title'), subtitle: t('dashboard.welcome') };
     }
   };
 
@@ -694,7 +683,7 @@ function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Toaster position="top-right" />
-      <Sidebar activeView={activeView} onViewChange={handleViewChange} />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} currentUser={currentUser} />
       <main className="flex-1 p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-800">{viewInfo.title}</h1>
@@ -704,6 +693,9 @@ function Dashboard() {
         {/* Dashboard View - Stats cards */}
         {activeView === 'dashboard' && (
           <>
+            {/* Dashboard Metrics Cards - Large cards for key metrics from API */}
+            <DashboardMetricsCards metrics={metrics} loading={metricsLoading} />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
@@ -711,7 +703,7 @@ function Dashboard() {
                     <span className="text-2xl">📋</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Total de Ordens</p>
+                    <p className="text-sm text-gray-500">{t('stats.totalOrders')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.length}
                     </p>
@@ -724,7 +716,7 @@ function Dashboard() {
                     <span className="text-2xl">✅</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Concluídas</p>
+                    <p className="text-sm text-gray-500">{t('stats.completed')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.filter((o) => o.status === 'CONCLUIDO').length}
                     </p>
@@ -737,7 +729,7 @@ function Dashboard() {
                     <span className="text-2xl">⏳</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Pendentes</p>
+                    <p className="text-sm text-gray-500">{t('stats.pending')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.filter((o) => o.status === 'PENDENTE').length}
                     </p>
@@ -750,7 +742,7 @@ function Dashboard() {
                     <span className="text-2xl">🔄</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Em Andamento</p>
+                    <p className="text-sm text-gray-500">{t('stats.inProgress')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
                     </p>
@@ -769,6 +761,9 @@ function Dashboard() {
               technicians={sampleTechnicians}
               onFilterChange={handleFilterChange}
               filters={filters}
+              orders={orders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
               onNewOrder={handleNewOrder}
               isLoading={isLoading}
             />
@@ -784,6 +779,9 @@ function Dashboard() {
             technicians={sampleTechnicians}
             onFilterChange={handleFilterChange}
             filters={filters}
+            orders={orders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
             onNewOrder={handleNewOrder}
             isLoading={isLoading}
           />
@@ -792,6 +790,11 @@ function Dashboard() {
         {/* Clients View */}
         {activeView === 'clients' && (
           <ClientsTable clients={sampleClients} />
+        )}
+
+        {/* My Account View */}
+        {activeView === 'myaccount' && (
+          <MyAccount currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         )}
 
         {/* Placeholder views for other sections */}
