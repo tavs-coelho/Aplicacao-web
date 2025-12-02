@@ -2,6 +2,7 @@
 // Componente Dashboard com Sidebar e tabela de Ordens de Serviço
 
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Toaster } from 'react-hot-toast';
 import PhotoCapture from './PhotoCapture';
 import TechnicianPerformanceChart from './TechnicianPerformanceChart';
@@ -14,6 +15,7 @@ import useSocket from '../hooks/useSocket';
 import useDashboardMetrics from '../hooks/useDashboardMetrics';
 import TableSkeleton from './TableSkeleton';
 import NewOrderModal from './NewOrderModal';
+import LanguageSwitcher from './LanguageSwitcher';
 import MyAccount from './MyAccount';
 
 const sampleServiceOrders = [
@@ -82,6 +84,8 @@ const sampleTechnicians = [
 
 // Status badge component with color-coded styling
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
+  
   const getStatusStyles = () => {
     switch (status) {
       case 'CONCLUIDO':
@@ -98,11 +102,11 @@ function StatusBadge({ status }) {
   const getStatusLabel = () => {
     switch (status) {
       case 'CONCLUIDO':
-        return 'Concluído';
+        return t('status.completed');
       case 'PENDENTE':
-        return 'Pendente';
+        return t('status.pending');
       case 'EM_ANDAMENTO':
-        return 'Em Andamento';
+        return t('status.inProgress');
       default:
         return status;
     }
@@ -118,6 +122,16 @@ function StatusBadge({ status }) {
 }
 
 // Sidebar component
+function Sidebar({ activeView, onViewChange }) {
+  const { t } = useTranslation();
+  
+  const menuItems = [
+    { nameKey: 'sidebar.dashboard', key: 'dashboard', icon: '📊' },
+    { nameKey: 'sidebar.orders', key: 'orders', icon: '📋' },
+    { nameKey: 'sidebar.clients', key: 'clients', icon: '👥' },
+    { nameKey: 'sidebar.technicians', key: 'technicians', icon: '🔧' },
+    { nameKey: 'sidebar.reports', key: 'reports', icon: '📈' },
+    { nameKey: 'sidebar.settings', key: 'settings', icon: '⚙️' },
 function Sidebar({ activeView, onViewChange, currentUser }) {
   const menuItems = [
     { name: 'Dashboard', key: 'dashboard', icon: '📊' },
@@ -132,8 +146,13 @@ function Sidebar({ activeView, onViewChange, currentUser }) {
   return (
     <aside className="w-64 bg-gray-800 text-white min-h-screen flex flex-col">
       <div className="p-4 border-b border-gray-700">
-        <h1 className="text-xl font-bold">Sistema FSM</h1>
-        <p className="text-gray-400 text-sm">Gestão de Equipes</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">{t('sidebar.systemTitle')}</h1>
+            <p className="text-gray-400 text-sm">{t('sidebar.systemSubtitle')}</p>
+          </div>
+          <LanguageSwitcher />
+        </div>
       </div>
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
@@ -149,7 +168,7 @@ function Sidebar({ activeView, onViewChange, currentUser }) {
                 }`}
               >
                 <span className="mr-3">{item.icon}</span>
-                {item.name}
+                {t(item.nameKey)}
               </button>
             </li>
           ))}
@@ -177,9 +196,11 @@ function Sidebar({ activeView, onViewChange, currentUser }) {
 // Service Orders Table component with search and filter functionality
 // Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
+  const { t, i18n } = useTranslation();
+  
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
+    return date.toLocaleDateString(i18n.language === 'pt' ? 'pt-BR' : 'en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -195,10 +216,10 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-800">
-            Ordens de Serviço
+            {t('orders.title')}
           </h2>
           <p className="text-sm text-gray-500">
-            Lista de todas as ordens de serviço
+            {t('orders.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -208,7 +229,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
             className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
             <span className="mr-2">➕</span>
-            Nova OS
+            {t('orders.newOrder')}
           </button>
           <button
             type="button"
@@ -216,7 +237,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             <span className="mr-2">📥</span>
-            Exportar Relatório
+            {t('orders.exportReport')}
           </button>
         </div>
       </div>
@@ -229,31 +250,31 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Cliente
+                {t('orders.client')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Técnico
+                {t('orders.technician')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Data
+                {t('orders.date')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Status
+                {t('orders.status')}
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Ações
+                {t('orders.actions')}
               </th>
             </tr>
           </thead>
@@ -261,7 +282,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
             {orders.length === 0 ? (
               <tr>
                 <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                  Nenhuma ordem de serviço encontrada.
+                  {t('orders.noOrders')}
                 </td>
               </tr>
             ) : (
@@ -291,7 +312,7 @@ function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isL
                         className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                       >
                         <span className="mr-1">✅</span>
-                        Finalizar
+                        {t('orders.finalize')}
                       </button>
                     )}
                   </td>
@@ -494,6 +515,7 @@ function ClientsTable({ clients }) {
 
 // Main Dashboard component
 function Dashboard() {
+  const { t } = useTranslation();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orders, setOrders] = useState(sampleServiceOrders);
   const [activeView, setActiveView] = useState('dashboard');
@@ -542,6 +564,9 @@ function Dashboard() {
   const handleRemoveToast = useCallback((toastId) => {
     setToasts(prev => prev.filter(t => t.id !== toastId));
   }, []);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
   // Simulate initial data loading
   useEffect(() => {
@@ -598,21 +623,22 @@ function Dashboard() {
   const getViewTitle = () => {
     switch (activeView) {
       case 'dashboard':
-        return { title: 'Dashboard', subtitle: 'Bem-vindo ao Sistema de Gestão de Equipes Externas' };
+        return { title: t('dashboard.title'), subtitle: t('dashboard.welcome') };
       case 'orders':
-        return { title: 'Ordens de Serviço', subtitle: 'Gerencie as ordens de serviço' };
+        return { title: t('orders.title'), subtitle: t('orders.subtitle') };
       case 'clients':
-        return { title: 'Clientes', subtitle: 'Lista de todos os clientes cadastrados' };
+        return { title: t('sidebar.clients'), subtitle: t('sidebar.clients') };
       case 'technicians':
-        return { title: 'Técnicos', subtitle: 'Gerencie os técnicos' };
+        return { title: t('sidebar.technicians'), subtitle: t('sidebar.technicians') };
       case 'reports':
+        return { title: t('sidebar.reports'), subtitle: t('sidebar.reports') };
         return { title: 'Relatórios', subtitle: 'Visualize os relatórios do sistema' };
       case 'myaccount':
         return { title: 'Minha Conta', subtitle: 'Gerencie suas informações pessoais' };
       case 'settings':
-        return { title: 'Configurações', subtitle: 'Configure o sistema' };
+        return { title: t('sidebar.settings'), subtitle: t('sidebar.settings') };
       default:
-        return { title: 'Dashboard', subtitle: 'Bem-vindo ao Sistema de Gestão de Equipes Externas' };
+        return { title: t('dashboard.title'), subtitle: t('dashboard.welcome') };
     }
   };
 
@@ -641,7 +667,7 @@ function Dashboard() {
                     <span className="text-2xl">📋</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Total de Ordens</p>
+                    <p className="text-sm text-gray-500">{t('stats.totalOrders')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.length}
                     </p>
@@ -654,7 +680,7 @@ function Dashboard() {
                     <span className="text-2xl">✅</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Concluídas</p>
+                    <p className="text-sm text-gray-500">{t('stats.completed')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.filter((o) => o.status === 'CONCLUIDO').length}
                     </p>
@@ -667,7 +693,7 @@ function Dashboard() {
                     <span className="text-2xl">⏳</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Pendentes</p>
+                    <p className="text-sm text-gray-500">{t('stats.pending')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.filter((o) => o.status === 'PENDENTE').length}
                     </p>
@@ -680,7 +706,7 @@ function Dashboard() {
                     <span className="text-2xl">🔄</span>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm text-gray-500">Em Andamento</p>
+                    <p className="text-sm text-gray-500">{t('stats.inProgress')}</p>
                     <p className="text-2xl font-bold text-gray-800">
                       {orders.filter((o) => o.status === 'EM_ANDAMENTO').length}
                     </p>
