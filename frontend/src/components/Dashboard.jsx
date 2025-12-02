@@ -194,6 +194,7 @@ function Sidebar({ activeView, onViewChange, currentUser }) {
 }
 
 // Service Orders Table component with search and filter functionality
+function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, technicians, onFilterChange, filters, onNewOrder, isLoading }) {
 // Service Orders Table component
 function ServiceOrdersTable({ orders, onFinalizeOrder, onExport, onNewOrder, isLoading }) {
   const { t, i18n } = useTranslation();
@@ -565,6 +566,41 @@ function Dashboard() {
     setToasts(prev => prev.filter(t => t.id !== toastId));
   }, []);
 
+  const [filters, setFilters] = useState({ search: '', status: '', techId: '' });
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+
+  // Filter orders based on current filters (client-side filtering for sample data)
+  const filteredOrders = orders.filter((order) => {
+    // Search filter (client name or address)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      const clientMatch = order.cliente?.toLowerCase().includes(searchLower);
+      const addressMatch = order.clienteEndereco?.toLowerCase().includes(searchLower);
+      if (!clientMatch && !addressMatch) {
+        return false;
+      }
+    }
+    
+    // Status filter
+    if (filters.status && order.status !== filters.status) {
+      return false;
+    }
+    
+    // Technician filter
+    if (filters.techId && order.tecnicoId !== filters.techId) {
+      return false;
+    }
+    
+    return true;
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    // In a real application, this would call the API with the new filters:
+    // fetchOrders(newFilters);
+  };
+
   const [isLoading, setIsLoading] = useState(true);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
@@ -719,6 +755,12 @@ function Dashboard() {
               <TechnicianPerformanceChart data={aggregateTechnicianPerformance(orders)} />
             </div>
             <ServiceOrdersTable 
+              orders={filteredOrders} 
+              onFinalizeOrder={handleFinalizeOrder} 
+              onExport={handleExportOrders}
+              technicians={sampleTechnicians}
+              onFilterChange={handleFilterChange}
+              filters={filters}
               orders={orders} 
               onFinalizeOrder={handleFinalizeOrder} 
               onExport={handleExportOrders}
@@ -731,6 +773,12 @@ function Dashboard() {
         {/* Orders View */}
         {activeView === 'orders' && (
           <ServiceOrdersTable 
+            orders={filteredOrders} 
+            onFinalizeOrder={handleFinalizeOrder} 
+            onExport={handleExportOrders}
+            technicians={sampleTechnicians}
+            onFilterChange={handleFilterChange}
+            filters={filters}
             orders={orders} 
             onFinalizeOrder={handleFinalizeOrder} 
             onExport={handleExportOrders}
