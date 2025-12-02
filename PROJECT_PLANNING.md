@@ -54,8 +54,7 @@ Este documento apresenta o planejamento detalhado do desenvolvimento do Sistema 
 | 2.1 | Modelagem conceitual (DER) | 2 dias | 1.6 |
 | 2.2 | Modelagem lógica | 1 dia | 2.1 |
 | 2.3 | Definição do schema Prisma | 1 dia | 2.2 |
-| 2.4 | Criação das migrations | 0.5 dia | 2.3 |
-| 2.5 | Validação e ajustes do modelo | 0.5 dia | 2.4 |
+| 2.4 | Criação das migrations e validação | 1 dia | 2.3 |
 
 ### Entidades Principais:
 - **User** (Admin/Técnico)
@@ -80,7 +79,7 @@ Este documento apresenta o planejamento detalhado do desenvolvimento do Sistema 
 
 | ID | Tarefa | Duração | Dependências |
 |----|--------|---------|--------------|
-| 3.1 | Configuração do ambiente (Node.js, Fastify, Prisma) | 2 dias | 2.5 |
+| 3.1 | Configuração do ambiente (Node.js, Fastify, Prisma) | 2 dias | 2.4 |
 | 3.2 | Implementação de autenticação (JWT) | 3 dias | 3.1 |
 | 3.3 | CRUD de Usuários (Admin/Técnico) | 2 dias | 3.2 |
 | 3.4 | CRUD de Clientes | 2 dias | 3.2 |
@@ -188,13 +187,11 @@ Este documento apresenta o planejamento detalhado do desenvolvimento do Sistema 
 | ID | Tarefa | Duração | Dependências |
 |----|--------|---------|--------------|
 | 7.1 | Configuração do ambiente de produção | 1 dia | 6.8 |
-| 7.2 | Deploy do banco de dados (PostgreSQL) | 0.5 dia | 7.1 |
-| 7.3 | Deploy do backend (Docker) | 1 dia | 7.2 |
-| 7.4 | Deploy do frontend web | 0.5 dia | 7.3 |
-| 7.5 | Publicação do app na Play Store | 1 dia | 7.4 |
-| 7.6 | Publicação do app na App Store | 1 dia | 7.4 |
-| 7.7 | Configuração de monitoramento e logs | 0.5 dia | 7.5, 7.6 |
-| 7.8 | Documentação final e treinamento | 0.5 dia | 7.7 |
+| 7.2 | Deploy do banco de dados e backend | 1 dia | 7.1 |
+| 7.3 | Deploy do frontend web | 1 dia | 7.2 |
+| 7.4 | Publicação do app na Play Store | 1 dia | 7.3 |
+| 7.5 | Publicação do app na App Store | 1 dia | 7.3 |
+| 7.6 | Monitoramento, logs e documentação | 1 dia | 7.4, 7.5 |
 
 ### Entregáveis:
 - [ ] Sistema em produção
@@ -207,15 +204,15 @@ Este documento apresenta o planejamento detalhado do desenvolvimento do Sistema 
 ## 📅 Cronograma Visual (Gráfico de Gantt)
 
 ```
-Semana:     1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17
-            |--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|
-Requisitos  ████
-Banco          ███
-Backend           █████████████
-Frontend                        ██████████
-Mobile                                    █████████████
-Testes                                                 ███████
-Deploy                                                        ███
+Semana:      1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17
+             |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+Requisitos   ███████
+Banco                ████
+Backend                  ████████████████
+Frontend                                 ████████████
+Mobile                                               ████████████████
+Testes                                                               ████████
+Deploy                                                                       ████
 ```
 
 ---
@@ -264,5 +261,5 @@ Deploy                                                        ███
 
 ---
 
-*Documento gerado em: Dezembro 2024*
+*Documento gerado em: 02 de Dezembro de 2024*
 *Versão: 1.0*
